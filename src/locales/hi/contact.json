@@ -1,0 +1,17 @@
+{
+  "pageTitle": "संपर्क करें",
+  "pageSubtitle": "अपने सही समारोह की योजना बनाने में हम आपकी मदद करें।",
+  "formTitle": "हमें अपनी पूछताछ भेजें",
+  "namePlaceholder": "राहुल शर्मा",
+  "emailPlaceholder": "rahul@example.com",
+  "phonePlaceholder": "+91-9685533878",
+  "eventTypePlaceholder": "इवेंट का प्रकार चुनें",
+  "messagePlaceholder": "हमें अपने इवेंट, मेहमान संख्या, पसंदीदा तारीख और मेनू संबंधी अनुरोधों के बारे में बताएं...",
+  "sendMessage": "पूछताछ भेजें",
+  "officeAddress": "हमारा स्थान",
+  "contactPhone": "हमें कॉल करें",
+  "contactEmail": "हमें ईमेल करें",
+  "workingHours": "कार्यालय समय",
+  "locationTitle": "हमसे मिलें",
+  "faqPrompt": "प्रश्न हैं? हमारा FAQ अनुभाग देखें।"
+}

@@ -1,0 +1,17 @@
+{
+  "pageTitle": "Get in Touch",
+  "pageSubtitle": "Let us help plan your perfect celebration with our catering services.",
+  "formTitle": "Send Us an Inquiry",
+  "namePlaceholder": "Rahul Sharma",
+  "emailPlaceholder": "rahul@example.com",
+  "phonePlaceholder": "+91-9685533878",
+  "eventTypePlaceholder": "Select event type",
+  "messagePlaceholder": "Tell us about your event, guest count, preferred date, and any special menu requests...",
+  "sendMessage": "Send Inquiry",
+  "officeAddress": "Our Location",
+  "contactPhone": "Call Us",
+  "contactEmail": "Email Us",
+  "workingHours": "Office Hours",
+  "locationTitle": "Visit Us",
+  "faqPrompt": "Have questions? Check our FAQ section."
+}
