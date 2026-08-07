@@ -64,7 +64,7 @@ export default function GeminiChatbot() {
     cateringPackage: "Royal Heritage Buffet",
     budget: "",
     venueAddress: "",
-    city: "Mumbai",
+    city: "Chhatarpur MP",
     specialRequirements: "",
   });
 
@@ -538,7 +538,7 @@ export default function GeminiChatbot() {
       cateringPackage: "Royal Heritage Buffet",
       budget: "",
       venueAddress: "",
-      city: "Mumbai",
+      city: "Chhatarpur MP",
       specialRequirements: "",
     });
   };
@@ -860,7 +860,7 @@ export default function GeminiChatbot() {
                             type="text"
                             value={formData.city}
                             onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                            placeholder="e.g. Mumbai"
+                            placeholder="e.g. Chhatarpur MP"
                             className={`w-full p-2 bg-slate-50 border rounded-lg focus:outline-none focus:bg-white ${formErrors.city ? "border-rose-400" : "border-slate-100"}`}
                           />
                           {formErrors.city && <span className="text-[9px] text-rose-500 font-bold">{formErrors.city}</span>}

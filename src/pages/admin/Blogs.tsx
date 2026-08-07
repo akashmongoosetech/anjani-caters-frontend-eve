@@ -923,7 +923,7 @@ export default function BlogsManagement() {
                           maxLength={250}
                           value={formData.metaKeywords || ''}
                           onChange={(e) => setFormData({ ...formData, metaKeywords: e.target.value })}
-                          placeholder="Comma-separated keywords, e.g. wedding catering, luxury events, Mumbai"
+                          placeholder="Comma-separated keywords, e.g. wedding catering, luxury events, Chhatarpur MP"
                           className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-xs"
                         />
                       </div>

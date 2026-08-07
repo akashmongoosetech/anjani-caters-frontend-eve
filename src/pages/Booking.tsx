@@ -685,7 +685,7 @@ export default function Booking() {
                             <label className="block text-xs font-semibold text-slate-700 mb-1">City *</label>
                             <input
                               type="text"
-                              placeholder="Mumbai"
+                              placeholder="Chhatarpur MP"
                               {...register('city')}
                               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-primary focus:outline-none"
                             />

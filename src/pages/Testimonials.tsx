@@ -330,7 +330,7 @@ export default function Testimonials() {
     <div className="bg-cream font-sans selection:bg-primary/20 selection:text-secondary">
       <SEO 
         title="Host Testimonials & Client Reviews" 
-        description="Read reviews from luxury hosts in Mumbai. Read verified feedback from premium Indian wedding families, corporate sponsors, and high-end private celebrations."
+        description="Read reviews from luxury hosts in Chhatarpur MP. Read verified feedback from premium Indian wedding families, corporate sponsors, and high-end private celebrations."
         urlPath="/testimonials"
       />
       <Helmet>

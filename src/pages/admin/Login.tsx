@@ -71,7 +71,7 @@ export default function Login() {
     <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4 relative font-sans">
       <SEO 
         title="Admin Login - Control Panel Access" 
-        description="Access the Anjani Catering & Events admin portal to manage events, client requests, menu settings, and catering schedules in Mumbai."
+        description="Access the Anjani Catering & Events admin portal to manage events, client requests, menu settings, and catering schedules in Chhatarpur MP."
         urlPath="/admin-login"
       />
       {/* Decorative ambient blobs */}
