@@ -91,7 +91,7 @@ export default function Contacts() {
     setShowExportToast(true);
     setTimeout(() => setShowExportToast(false), 3000);
 
-    // Dynamic client-side download simulation of inquiries csv
+    // Dynamic client-side download of inquiries csv
     const csvContent = "data:text/csv;charset=utf-8," 
       + ["ID,Name,Email,Phone,Event Date,Guests,Message,Status,Created At"].join(",") + "\n"
       + contacts.map(c => [
@@ -143,7 +143,7 @@ export default function Contacts() {
       {showExportToast && (
         <div className="fixed bottom-6 right-6 bg-slate-950 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 z-50 animate-bounce font-sans text-xs sm:text-sm font-bold border border-white/10">
           <Check className="w-5 h-5 text-emerald-400" />
-          <span>Simulated CSV spreadsheet successfully downloaded!</span>
+          <span>CSV spreadsheet exported successfully!</span>
         </div>
       )}
 

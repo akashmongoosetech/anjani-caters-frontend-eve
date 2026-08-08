@@ -1,36 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation, Navigate, Outlet } from 'react-router-dom';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
-import LoadingSpinner from '../layout/LoadingSpinner';
 
 export default function AdminLayout() {
   const { isAuthenticated } = useAdminAuth();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Guard routing with a slight simulated load effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 450);
-    return () => clearTimeout(timer);
-  }, [location.pathname]);
 
   if (!isAuthenticated) {
     // Force redirect to login page if unauthenticated
     return <Navigate to="/admin-login" replace state={{ from: location }} />;
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <LoadingSpinner fullPage={true} />
-      </div>
-    );
   }
 
   // Map route pathname to elegant descriptive page titles

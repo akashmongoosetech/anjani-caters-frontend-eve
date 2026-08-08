@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { AdminUser, AdminRole } from '../types/admin';
 import { api } from '../lib/api';
 import { isTokenValid, decodeJwt } from '../lib/jwt';
+import { getAuthToken, setAuthToken, clearAuthToken } from '../lib/token';
 
 interface AdminAuthContextType {
   isAuthenticated: boolean;
@@ -12,8 +13,9 @@ interface AdminAuthContextType {
   signup: (userData: Omit<AdminUser, 'id'>, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateProfile: (data: Partial<Omit<AdminUser, 'id'>>) => void;
-  verifyAccount: (emailOrMobile: string) => Promise<{ success: boolean; error?: string }>;
-  resetPassword: (emailOrMobile: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  forgotPassword: (emailOrMobile: string) => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (emailOrMobile: string, otp: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   hasRole: (allowedRoles: AdminRole[] | string[]) => boolean;
   hasPermission: (permission: string) => boolean;
 }
@@ -40,7 +42,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   // Validate stored token and fetch user on initial mount
   useEffect(() => {
     const initAuth = async () => {
-      const storedToken = localStorage.getItem('eveng_admin_token') || sessionStorage.getItem('eveng_token');
+      const storedToken = getAuthToken();
 
       if (storedToken && isTokenValid(storedToken)) {
         setToken(storedToken);
@@ -83,7 +85,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       const res = await api.login({ emailOrMobile, password });
       if (res.success && res.data) {
         const authToken = res.data.token || '';
-        localStorage.setItem('eveng_admin_token', authToken);
+        setAuthToken(authToken);
         setToken(authToken);
 
         const u = res.data.user || {};
@@ -128,7 +130,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       const res = await api.register(payload);
       if (res.success && res.data) {
         const authToken = res.data.token || '';
-        localStorage.setItem('eveng_admin_token', authToken);
+        setAuthToken(authToken);
         setToken(authToken);
 
         const u = res.data.user || {};
@@ -156,8 +158,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('eveng_admin_token');
-    sessionStorage.removeItem('eveng_token');
+    clearAuthToken();
     setToken(null);
     setIsAuthenticated(false);
     setCurrentUser(null);
@@ -168,21 +169,30 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     setCurrentUser({ ...currentUser, ...data });
   };
 
-  const verifyAccount = async (emailOrMobile: string): Promise<{ success: boolean; error?: string }> => {
+  const forgotPassword = async (emailOrMobile: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const res = await api.verifyAccount(emailOrMobile);
+      const res = await api.forgotPassword(emailOrMobile);
       return { success: res.success, error: res.error };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Verification failed' };
+      return { success: false, error: err.message || 'Request failed' };
     }
   };
 
-  const resetPassword = async (emailOrMobile: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+  const resetPassword = async (emailOrMobile: string, otp: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const res = await api.resetPassword(emailOrMobile, newPassword);
+      const res = await api.resetPassword(emailOrMobile, otp, newPassword);
       return { success: res.success, error: res.error };
     } catch (err: any) {
       return { success: false, error: err.message || 'Password reset failed' };
+    }
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await api.changePassword(currentPassword, newPassword);
+      return { success: res.success, error: res.error };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Password change failed' };
     }
   };
 
@@ -213,8 +223,9 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         signup,
         logout,
         updateProfile,
-        verifyAccount,
+        forgotPassword,
         resetPassword,
+        changePassword,
         hasRole,
         hasPermission
       }}

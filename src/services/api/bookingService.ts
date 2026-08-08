@@ -97,6 +97,8 @@ export interface SingleBookingResponse {
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '/api';
 
+import { getAuthToken } from '../../lib/token';
+
 export const bookingApiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
@@ -108,7 +110,7 @@ export const bookingApiClient: AxiosInstance = axios.create({
 // Interceptor to attach Authorization Token if present in LocalStorage
 bookingApiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }

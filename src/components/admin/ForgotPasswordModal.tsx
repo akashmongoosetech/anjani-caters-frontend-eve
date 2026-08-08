@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, Mail, KeyRound, Lock, CheckCircle2, ShieldCheck, 
-  AlertCircle, ArrowRight, Loader2, Eye, EyeOff, Sparkles, Send
+  AlertCircle, ArrowRight, Loader2, Eye, EyeOff, Send
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,7 +15,7 @@ interface ForgotPasswordModalProps {
 type Step = 'email' | 'otp' | 'reset' | 'success';
 
 export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }: ForgotPasswordModalProps) {
-  const { verifyAccount, resetPassword } = useAdminAuth();
+  const { forgotPassword, resetPassword } = useAdminAuth();
 
   const [step, setStep] = useState<Step>('email');
   const [emailOrMobile, setEmailOrMobile] = useState('');
@@ -27,22 +27,21 @@ export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }:
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [otpSentMessage, setOtpSentMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   // Auto-clear message alerts
   useEffect(() => {
-    if (otpSentMessage) {
+    if (infoMessage) {
       const timer = setTimeout(() => {
-        setOtpSentMessage(null);
-      }, 10000);
+        setInfoMessage(null);
+      }, 12000);
       return () => clearTimeout(timer);
     }
-  }, [otpSentMessage]);
+  }, [infoMessage]);
 
   if (!isOpen) return null;
 
-  const handleSendOTP = async (e: React.FormEvent) => {
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailOrMobile.trim()) {
       setError('Please enter your registered email address or mobile number.');
@@ -53,32 +52,29 @@ export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }:
     setError('');
 
     try {
-      const res = await verifyAccount(emailOrMobile.trim());
+      const res = await forgotPassword(emailOrMobile.trim());
       if (res.success) {
-        // Generate a 6-digit random code
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        setGeneratedOtp(code);
-        setOtpSentMessage(`[Gateway Simulator] Verification OTP code sent to registered channel: ${code}`);
+        setOtp('');
+        setInfoMessage(`If an account exists for ${emailOrMobile.trim()}, a 6-digit verification code has been sent to the registered email. The code expires in 10 minutes.`);
         setStep('otp');
       } else {
-        setError(res.error || 'No administrator account matches that input.');
+        setError(res.error || 'Unable to send a recovery code. Please try again.');
       }
     } catch (err) {
-      setError('An error occurred during account verification. Please try again.');
+      setError('An error occurred while sending the recovery code. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleVerifyOTP = (e: React.FormEvent) => {
+  const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (otp.trim() === generatedOtp) {
-      setStep('reset');
-    } else {
-      setError('Invalid verification code. Please check the code in the simulator notification.');
+    if (otp.trim().length !== 6) {
+      setError('Please enter the 6-digit verification code.');
+      return;
     }
+    setError('');
+    setStep('reset');
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -90,7 +86,6 @@ export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }:
       return;
     }
 
-    // Check strength complexity
     const hasUpper = /[A-Z]/.test(newPassword);
     const hasLower = /[a-z]/.test(newPassword);
     const hasDigit = /[0-9]/.test(newPassword);
@@ -109,11 +104,11 @@ export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }:
     setIsLoading(true);
 
     try {
-      const res = await resetPassword(emailOrMobile.trim(), newPassword);
+      const res = await resetPassword(emailOrMobile.trim(), otp.trim(), newPassword);
       if (res.success) {
         setStep('success');
       } else {
-        setError(res.error || 'Failed to update credentials. Please try again.');
+        setError(res.error || 'Failed to update credentials. Please verify your code and try again.');
       }
     } catch (err) {
       setError('An error occurred during password update.');
@@ -130,52 +125,37 @@ export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }:
     setOtp('');
     setNewPassword('');
     setConfirmPassword('');
-    setGeneratedOtp('');
     setError('');
+    setInfoMessage(null);
     onClose();
-  };
-
-  const triggerResendOtp = () => {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(code);
-    setOtpSentMessage(`[Gateway Simulator] New verification OTP code resent: ${code}`);
-    setError('');
   };
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 bg-slate-900/60 backdrop-blur-sm font-sans">
-        {/* Gateway Simulator Pop-up overlay banner */}
-        {otpSentMessage && (
+        {/* Informational banner shown after the code is requested */}
+        {infoMessage && (
           <motion.div 
             initial={{ opacity: 0, y: -40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -40 }}
             className="fixed top-6 left-1/2 -translate-x-1/2 max-w-md w-full z-55 px-4"
           >
-            <div className="bg-amber-50 border-2 border-amber-300 p-4 rounded-2xl shadow-xl text-left flex gap-3 relative">
-              <div className="p-2 bg-amber-100 text-amber-800 rounded-xl shrink-0 h-10 w-10 flex items-center justify-center">
-                <Send className="w-5 h-5 animate-bounce" />
+            <div className="bg-emerald-50 border-2 border-emerald-300 p-4 rounded-2xl shadow-xl text-left flex gap-3 relative">
+              <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl shrink-0 h-10 w-10 flex items-center justify-center">
+                <Send className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider mb-0.5">
-                  Secure SMS & Mailer Relay Sim
+                <h4 className="text-xs font-bold text-emerald-900 uppercase tracking-wider mb-0.5">
+                  Recovery Code Sent
                 </h4>
-                <p className="text-xs font-semibold text-amber-800 leading-normal break-words">
-                  {otpSentMessage}
+                <p className="text-xs font-semibold text-emerald-800 leading-normal break-words">
+                  {infoMessage}
                 </p>
-                <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(generatedOtp);
-                  }}
-                  className="mt-2 inline-flex items-center gap-1 text-[10px] bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-2 py-1 rounded-lg cursor-pointer transition-all"
-                >
-                  Copy OTP Code
-                </button>
               </div>
               <button 
-                onClick={() => setOtpSentMessage(null)}
-                className="text-amber-500 hover:text-amber-700 absolute right-3 top-3 cursor-pointer"
+                onClick={() => setInfoMessage(null)}
+                className="text-emerald-500 hover:text-emerald-700 absolute right-3 top-3 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -205,15 +185,15 @@ export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }:
             </div>
             <h3 className="font-serif text-xl sm:text-2xl font-bold text-secondary tracking-tight">
               {step === 'email' && 'Reset Password'}
-              {step === 'otp' && 'Verify Account'}
+              {step === 'otp' && 'Verify Recovery Code'}
               {step === 'reset' && 'Create New Password'}
               {step === 'success' && 'Reset Successful'}
             </h3>
             <p className="text-xs text-slate-400 font-semibold font-sans mt-1 max-w-[280px]">
-              {step === 'email' && 'Verify your administrative email or mobile contact details.'}
-              {step === 'otp' && `Enter the 6-digit verification code sent to ${emailOrMobile}.`}
-              {step === 'reset' && 'Enforce a strong unique security key for your login credentials.'}
-              {step === 'success' && 'Your credentials have been updated securely in local persistence.'}
+              {step === 'email' && 'Enter your registered email or mobile to receive a recovery code.'}
+              {step === 'otp' && 'Enter the 6-digit verification code sent to your registered email.'}
+              {step === 'reset' && 'Enforce a strong, unique security key for your login credentials.'}
+              {step === 'success' && 'Your credentials have been updated. You can now sign in with your new password.'}
             </p>
           </div>
 
@@ -233,7 +213,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }:
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
-                onSubmit={handleSendOTP}
+                onSubmit={handleSendCode}
                 className="space-y-4"
               >
                 <div className="space-y-1.5 text-left">
@@ -259,7 +239,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }:
                   {isLoading ? (
                     <>
                       <Loader2 className="w-4.5 h-4.5 animate-spin" />
-                      <span>Verifying account...</span>
+                      <span>Sending code...</span>
                     </>
                   ) : (
                     <>
@@ -277,20 +257,11 @@ export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }:
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 10 }}
-                onSubmit={handleVerifyOTP}
+                onSubmit={handleVerifyOtp}
                 className="space-y-4"
               >
                 <div className="space-y-1.5 text-left">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-bold text-slate-500">6-Digit Recovery OTP</label>
-                    <button 
-                      type="button" 
-                      onClick={triggerResendOtp}
-                      className="text-[11px] font-bold text-primary hover:underline cursor-pointer"
-                    >
-                      Resend Code
-                    </button>
-                  </div>
+                  <label className="text-xs font-bold text-slate-500">6-Digit Recovery Code</label>
                   <div className="relative">
                     <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
                     <input
@@ -309,7 +280,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }:
                   type="submit"
                   className="w-full py-3.5 bg-secondary text-white font-bold rounded-2xl shadow-md hover:bg-slate-800 transition-all flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm"
                 >
-                  <span>Verify Recovery Code</span>
+                  <span>Continue</span>
                   <ArrowRight className="w-4.5 h-4.5" />
                 </button>
 
@@ -321,7 +292,7 @@ export default function ForgotPasswordModal({ isOpen, onClose, onSuccessReset }:
                   }}
                   className="w-full text-center text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
                 >
-                  Change Email or Mobile
+                  Resend / Change Email or Mobile
                 </button>
               </motion.form>
             )}

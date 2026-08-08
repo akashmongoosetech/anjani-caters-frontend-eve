@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { getAuthToken } from './token';
 
 let socket: Socket | null = null;
 
@@ -9,7 +10,7 @@ const BACKEND_URL = (import.meta as any).env?.VITE_API_URL
 export function connectSocket(role?: string): Socket {
   if (socket?.connected) return socket;
 
-  const token = localStorage.getItem('eveng_admin_token') || sessionStorage.getItem('eveng_token');
+  const token = getAuthToken();
 
   socket = io(BACKEND_URL, {
     transports: ['websocket', 'polling'],

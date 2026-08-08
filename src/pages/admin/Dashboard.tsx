@@ -19,12 +19,23 @@ const RECHARTS_GROWTH_DATA: any[] = [];
 const RECHARTS_CONTACTS_DATA: any[] = [];
 const RECHARTS_ORDERS_STATUS_DATA: any[] = [];
 
-function buildGrowthData(revenueByMonth: any[]) {
-  return revenueByMonth.map((r: any, i: number) => ({
-    name: r.month,
-    revenue: r.revenue,
-    pipeline: Math.round(r.revenue * (0.5 + Math.random() * 0.4)),
-  }));
+// Real month-over-month delta derived from backend series. Returns null when
+// there is not enough historical data to compare.
+function computeMoMDelta(series: any[], key: string): string | null {
+  if (!series || series.length < 2) return null;
+  const values = series.map((s) => Number(s[key]) || 0);
+  const current = values[values.length - 1];
+  const previous = values[values.length - 2];
+  if (previous === 0) return current > 0 ? '+new' : null;
+  const pct = ((current - previous) / previous) * 100;
+  const sign = pct >= 0 ? '+' : '';
+  return `${sign}${pct.toFixed(1)}%`;
+}
+
+function formatTrend(pct: string | null): { label: string; up: boolean } {
+  if (!pct) return { label: '—', up: true };
+  const isUp = !pct.startsWith('-') && pct !== '+new';
+  return { label: pct, up: isUp || pct === '+new' };
 }
 
 export default function Dashboard() {
@@ -88,11 +99,13 @@ export default function Dashboard() {
   const totalRevenue = dashboardStats?.totalRevenue ?? 0;
 
   const bookingsChartData: any[] = dashboardStats?.bookingsByMonth ?? RECHARTS_BOOKINGS_DATA;
-  const growthChartData: any[] = dashboardStats?.revenueByMonth
-    ? buildGrowthData(dashboardStats.revenueByMonth)
-    : RECHARTS_GROWTH_DATA;
+  const growthChartData: any[] = dashboardStats?.revenueByMonth ?? RECHARTS_GROWTH_DATA;
   const contactsChartData: any[] = dashboardStats?.contactsByMonth ?? RECHARTS_CONTACTS_DATA;
   const ordersStatusData: any[] = dashboardStats?.ordersByStatus ?? RECHARTS_ORDERS_STATUS_DATA;
+
+  const bookingsTrend = formatTrend(computeMoMDelta(bookingsChartData, 'bookings'));
+  const contactsTrend = formatTrend(computeMoMDelta(contactsChartData, 'inquiries'));
+  const revenueTrend = formatTrend(computeMoMDelta(growthChartData, 'revenue'));
 
   // Dynamic KPI Cards config array
   const kpiCards = [
@@ -102,8 +115,8 @@ export default function Dashboard() {
       description: dashboardStats?.pendingBookings 
         ? `${dashboardStats.pendingBookings} pending holds` 
         : 'Pending and approved hold requests',
-      trend: '+14.2%',
-      trendUp: true,
+      trend: bookingsTrend.label,
+      trendUp: bookingsTrend.up,
       icon: Calendar,
       bgColor: 'bg-indigo-50 text-indigo-600 border-indigo-100',
     },
@@ -111,7 +124,7 @@ export default function Dashboard() {
       title: 'Total Orders',
       value: totalOrders.toLocaleString(),
       description: 'Active catering custom menus',
-      trend: '+8.4%',
+      trend: '—',
       trendUp: true,
       icon: ShoppingBag,
       bgColor: 'bg-emerald-50 text-emerald-600 border-emerald-100',
@@ -120,8 +133,8 @@ export default function Dashboard() {
       title: 'Client Inquiries',
       value: totalContacts.toLocaleString(),
       description: 'Unresolved message proposals',
-      trend: '-3.1%',
-      trendUp: false,
+      trend: contactsTrend.label,
+      trendUp: contactsTrend.up,
       icon: Mail,
       bgColor: 'bg-amber-50 text-amber-600 border-amber-100',
     },
@@ -129,7 +142,7 @@ export default function Dashboard() {
       title: 'Active Staff',
       value: totalUsers.toLocaleString(),
       description: 'System administrators & staff',
-      trend: '+2 new',
+      trend: '—',
       trendUp: true,
       icon: Users,
       bgColor: 'bg-sky-50 text-sky-600 border-sky-100',
@@ -181,14 +194,14 @@ export default function Dashboard() {
           
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center sm:text-right">
             <span className="text-[9px] font-bold text-primary uppercase tracking-wider block">
-              Estimated Pipeline Revenue
+              Total Revenue (Booked)
             </span>
             <p className="font-serif text-2xl sm:text-3xl font-bold text-white mt-0.5">
               ₹{totalRevenue.toLocaleString('en-IN')}
             </p>
             <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 justify-center sm:justify-end mt-1">
               <TrendingUp className="w-3.5 h-3.5" />
-              +18.3% vs last quarter
+              {revenueTrend.label === '—' ? 'Revenue this year' : `MoM ${revenueTrend.label}`}
             </span>
           </div>
         </div>
@@ -306,10 +319,10 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h4 className="font-serif text-base sm:text-lg font-bold text-secondary">
-                Monthly Performance & Pipeline
+                Monthly Revenue Performance
               </h4>
               <p className="text-xs text-slate-400 font-semibold font-sans mt-0.5">
-                Comparison between closed revenue and active pipelines.
+                Booked revenue closed per month across confirmed events.
               </p>
             </div>
             <span className="text-xs font-bold text-primary flex items-center gap-1 bg-primary/10 px-2.5 py-1 rounded-xl">
@@ -324,10 +337,6 @@ export default function Dashboard() {
                     <stop offset="5%" stopColor="#10B981" stopOpacity={0.2}/>
                     <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
                   </linearGradient>
-                  <linearGradient id="colorPipe" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                 <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} />
@@ -335,7 +344,6 @@ export default function Dashboard() {
                 <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', fontFamily: 'sans-serif', fontSize: '12px' }} />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }} />
                 <Area type="monotone" dataKey="revenue" name="Closed Sales" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" />
-                <Area type="monotone" dataKey="pipeline" name="Pipeline Inquiries" stroke="#3B82F6" strokeWidth={1.5} strokeDasharray="4 4" fillOpacity={1} fill="url(#colorPipe)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

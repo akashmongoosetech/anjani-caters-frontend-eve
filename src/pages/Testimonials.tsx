@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Star, MessageSquare, Quote, Heart, ChevronLeft, ChevronRight, Play, 
   CheckCircle2, Award, Calendar, MapPin, Sparkles, Clock, ArrowRight, 
-  X, Maximize2, ChevronDown, ChevronUp, Utensils, ThumbsUp, Send, UserCheck, ShieldCheck
+  X, Maximize2, ChevronDown, ChevronUp, Utensils, ThumbsUp, Send, UserCheck, ShieldCheck, AlertCircle, Loader2
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import PageBanner from '../components/layout/PageBanner';
@@ -16,6 +16,7 @@ import {
   VideoTestimonial 
 } from '../data/testimonialsData';
 import { getTestimonialsData } from '../data/getAsyncData';
+import { api } from '../lib/api';
 import { useLanguage } from '../context/LanguageContext';
 import { useAsyncData } from '../hooks/useAsyncData';
 
@@ -103,7 +104,6 @@ function VideoModal({ isOpen, onClose, video }: VideoModalProps) {
 
           {/* Responsive Video Container */}
           <div className="aspect-video w-full bg-black relative flex items-center justify-center">
-            {/* Embedded simulated player with luxury Indian wedding highlight cinematic loop (visual only) */}
             <iframe
               className="w-full h-full absolute inset-0"
               src={`${video.videoUrl}?autoplay=1&mute=1&loop=1&playlist=${video.videoUrl.split('/').pop()}`}
@@ -111,13 +111,13 @@ function VideoModal({ isOpen, onClose, video }: VideoModalProps) {
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             ></iframe>
-            {/* Visual fallback simulator notice */}
+            {/* Guest video attribution */}
             <div className="absolute bottom-3 left-4 right-4 bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 text-left pointer-events-none z-10">
               <span className="text-[10px] bg-primary/20 text-primary border border-primary/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest mb-1 inline-block">
-                Cinematic Highlight Sim
+                Client Video Review
               </span>
               <p className="text-[11px] text-white/95 font-medium">
-                Showing simulated host wedding celebration showcase. Experience premium hospitality of Anjani Catering & Events.
+                {video.name} shares their experience with Anjani Catering & Events.
               </p>
             </div>
           </div>
@@ -287,15 +287,27 @@ export default function Testimonials() {
   const [writeReviewRating, setWriteReviewRating] = useState(5);
   const [writeReviewFeedback, setWriteReviewFeedback] = useState('');
   const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState(false);
+  const [reviewSubmitError, setReviewSubmitError] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
-  const handleSubmitReview = (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!writeReviewName || !writeReviewFeedback) return;
     setIsSubmittingReview(true);
+    setReviewSubmitError('');
     
-    // Simulate API storage delay
-    setTimeout(() => {
+    try {
+      const res = await api.submitTestimonial({
+        name: writeReviewName.trim(),
+        email: writeReviewEmail.trim(),
+        city: writeReviewCity.trim(),
+        eventType: writeReviewType,
+        rating: writeReviewRating,
+        comment: writeReviewFeedback.trim(),
+      });
+      if (!res.success) {
+        throw new Error(res.error || 'Submission failed');
+      }
       setIsSubmittingReview(false);
       setReviewSubmitSuccess(true);
       // Clear inputs
@@ -303,10 +315,16 @@ export default function Testimonials() {
       setWriteReviewEmail('');
       setWriteReviewCity('');
       setWriteReviewFeedback('');
-      
+      setWriteReviewRating(5);
+      setWriteReviewType('Weddings');
+
       // Clear banner after 10s
       setTimeout(() => setReviewSubmitSuccess(false), 10000);
-    }, 1200);
+    } catch (err) {
+      console.error('Failed to submit review', err);
+      setIsSubmittingReview(false);
+      setReviewSubmitError('Something went wrong while submitting your review. Please try again.');
+    }
   };
 
   // Helper to split filtered list into 3 balanced columns for beautiful masonry display
@@ -963,9 +981,16 @@ export default function Testimonials() {
                 <div>
                   <h4 className="font-bold text-emerald-800">Review Submitted Successfully!</h4>
                   <p className="font-semibold text-[11px] text-emerald-600 mt-1 leading-normal">
-                    Thank you! Your feedback has been safely logged in our local storage system. Our culinary team celebrates every verified review.
+                    Thank you! Your feedback has been received by our team and will appear on this page once approved for moderation.
                   </p>
                 </div>
+              </div>
+            )}
+
+            {reviewSubmitError && (
+              <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs sm:text-sm font-bold text-rose-600 flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                <span>{reviewSubmitError}</span>
               </div>
             )}
 

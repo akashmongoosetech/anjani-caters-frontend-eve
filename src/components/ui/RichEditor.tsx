@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
+import { getAuthToken } from '../../lib/token';
 import 'ckeditor5/ckeditor5.css';
 
 if (typeof window !== 'undefined' && !window.CKEDITOR_VERSION) {
@@ -68,9 +69,7 @@ class AnjaniUploadAdapter {
         new Promise((resolve, reject) => {
           const formData = new FormData();
           formData.append('file', file);
-          const token =
-            localStorage.getItem('eveng_admin_token') ||
-            sessionStorage.getItem('eveng_token');
+          const token = getAuthToken();
           const headers: Record<string, string> = {};
           if (token) headers['Authorization'] = `Bearer ${token}`;
 

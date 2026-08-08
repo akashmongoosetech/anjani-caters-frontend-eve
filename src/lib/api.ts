@@ -5,6 +5,8 @@
 
 const BASE_URL = (import.meta as any).env?.VITE_API_URL || '/api';
 
+import { getAuthToken } from './token';
+
 function buildQueryString(params?: Record<string, any>): string {
   if (!params) return '';
   const searchParams = new URLSearchParams();
@@ -21,7 +23,7 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<{ success: boolean; data?: T; message?: string; error?: string }> {
-  const token = localStorage.getItem('eveng_admin_token') || sessionStorage.getItem('eveng_token');
+  const token = getAuthToken();
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -72,11 +74,14 @@ export const api = {
   getMe: () =>
     apiRequest('/auth/me'),
 
-  verifyAccount: (emailOrMobile: string) =>
-    apiRequest('/auth/verify-account', { method: 'POST', body: JSON.stringify({ emailOrMobile }) }),
+  forgotPassword: (emailOrMobile: string) =>
+    apiRequest('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ emailOrMobile }) }),
 
-  resetPassword: (emailOrMobile: string, newPassword: string) =>
-    apiRequest('/auth/reset-password', { method: 'POST', body: JSON.stringify({ emailOrMobile, newPassword }) }),
+  resetPassword: (emailOrMobile: string, otp: string, newPassword: string) =>
+    apiRequest('/auth/reset-password', { method: 'POST', body: JSON.stringify({ emailOrMobile, otp, newPassword }) }),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiRequest('/auth/change-password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) }),
 
   // Contact
   submitContact: (payload: any) =>
@@ -217,7 +222,7 @@ export const api = {
   uploadFile: (file: File, fieldName: string = 'file'): Promise<{ success: boolean; data?: { url: string; filename: string; size: number; mimetype: string }; error?: string }> => {
     return new Promise(async (resolve) => {
       try {
-        const token = localStorage.getItem('eveng_admin_token') || sessionStorage.getItem('eveng_token');
+        const token = getAuthToken();
         const formData = new FormData();
         formData.append(fieldName, file);
         const res = await fetch(`${BASE_URL}/upload`, {
@@ -359,6 +364,9 @@ export const api = {
   // Testimonials
   getTestimonials: () =>
     apiRequest('/testimonials'),
+
+  submitTestimonial: (payload: { name: string; email: string; city: string; eventType: string; rating: number; comment: string }) =>
+    apiRequest('/testimonials/submit', { method: 'POST', body: JSON.stringify(payload) }),
 
   // FAQs
   getFAQs: () =>

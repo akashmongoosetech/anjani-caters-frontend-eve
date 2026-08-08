@@ -70,9 +70,7 @@ export default function Settings() {
       return;
     }
     try {
-      if (currentUser?.id) {
-        await api.resetPassword(currentUser.email, newPassword);
-      }
+      await api.changePassword(currentPassword, newPassword);
     } catch (err) {
       console.error('Failed to change password', err);
       setPasswordError('Failed to change password. Please try again.');
