@@ -1,20 +1,26 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Heart, Briefcase, Sparkles, GlassWater, ChevronDown, Calendar, ArrowRight, HelpCircle } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 import PageBanner from '../components/layout/PageBanner';
 import SEO from '../components/SEO';
-import { getServiceBySlug, getServices } from '../data/getAsyncData';
+import { getServiceBySlug, getServices, getServiceFAQs } from '../data/getAsyncData';
 import { useAsyncData } from '../hooks/useAsyncData';
 import LazyImage from '../components/ui/LazyImage';
 import RichText, { stripHtml } from '../components/ui/RichText';
+import { useLanguage } from '../context/LanguageContext';
+import type { ServiceFAQ } from '../types';
 
 export default function ServiceDetails() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const { language, t } = useLanguage();
   const [activeAccordion, setActiveAccordion] = useState<number | null>(0);
 
-  const { data: service } = useAsyncData(() => getServiceBySlug(slug || '', 'en'), null, [slug]);
-  const { data: allServices } = useAsyncData(() => getServices('en'), [] as any[], []);
+  const { data: service } = useAsyncData(() => getServiceBySlug(slug || '', language), null, [slug, language]);
+  const { data: allServices } = useAsyncData(() => getServices(language), [] as any[], [language]);
+  const serviceId = service?._id || service?.id || '';
+  const { data: serviceFAQs } = useAsyncData(() => getServiceFAQs(serviceId), [] as ServiceFAQ[], [serviceId, language]);
 
   // Auto scroll to top on slug change
   useEffect(() => {
@@ -35,10 +41,44 @@ export default function ServiceDetails() {
     );
   }
 
-  // Find related services (excluding the current one)
-  const relatedServices = allServices.filter(s => s.id !== service.id).slice(0, 2);
+  // Find related services (excluding the current one), prioritizing same category
+  const relatedServices = allServices
+    .filter(s => s.id !== service.id)
+    .sort((a, b) => {
+      const aSame = a.categoryName === service.categoryName ? 0 : 1;
+      const bSame = b.categoryName === service.categoryName ? 0 : 1;
+      return aSame - bSame;
+    })
+    .slice(0, 2);
 
-  const serviceFaqs: { q: string; a: string }[] = [];
+  const serviceFaqs: ServiceFAQ[] = serviceFAQs || [];
+
+  const faqSchema = serviceFaqs.length > 0
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: serviceFaqs.map((faq) => ({
+          '@type': 'Question',
+          name: stripHtml(faq.question),
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: stripHtml(faq.answer),
+          },
+        })),
+      }
+    : null;
+
+  const breadcrumbs: { name: string; path?: string }[] = [
+    { name: t('home'), path: '/' },
+    { name: t('services'), path: '/services' },
+  ];
+  if (service.categorySlug) {
+    breadcrumbs.push({ name: service.categoryName || service.category, path: `/services?category=${service.categorySlug}` });
+  }
+  if (service.subCategorySlug && service.categorySlug) {
+    breadcrumbs.push({ name: service.subCategoryName, path: `/services?category=${service.categorySlug}&subcategory=${service.subCategorySlug}` });
+  }
+  breadcrumbs.push({ name: service.title });
 
   return (
     <div>
@@ -48,9 +88,14 @@ export default function ServiceDetails() {
         image={service.image}
         urlPath={`/services/${service.slug}`}
       />
+      {faqSchema && (
+        <Helmet>
+          <script type="application/ld+json">{JSON.stringify(faqSchema)}</script>
+        </Helmet>
+      )}
       <PageBanner 
         title={service.title} 
-        breadcrumbs={[{ name: 'Services', path: '/services' }, { name: service.title }]} 
+        breadcrumbs={breadcrumbs} 
         backgroundImage={service.image}
       />
 
@@ -96,35 +141,46 @@ export default function ServiceDetails() {
               )}
 
               {/* Interactive Service FAQ Accordion */}
-              <div>
-                <h3 className="font-serif text-2xl font-bold text-secondary mb-5 flex items-center gap-2">
-                  <HelpCircle className="w-6 h-6 text-primary" />
-                  <span>Catering FAQs for {service.title}</span>
-                </h3>
-                <div className="space-y-3">
-                  {serviceFaqs.map((faq, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm"
-                    >
-                      <button
-                        onClick={() => setActiveAccordion(activeAccordion === idx ? null : idx)}
-                        className="w-full flex items-center justify-between p-5 text-left font-serif font-bold text-base sm:text-lg text-secondary hover:text-primary transition-colors focus:outline-none"
+              {serviceFaqs.length > 0 && (
+                <div>
+                  <h3 className="font-serif text-2xl font-bold text-secondary mb-5 flex items-center gap-2">
+                    <HelpCircle className="w-6 h-6 text-primary" />
+                    <span>Catering FAQs for {service.title}</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {serviceFaqs.map((faq, idx) => (
+                      <div
+                        key={faq._id || faq.id || idx}
+                        className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm"
                       >
-                        <span>{faq.q}</span>
-                        <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${activeAccordion === idx ? 'rotate-180 text-primary' : ''}`} />
-                      </button>
-                      <div className={`transition-all duration-300 overflow-hidden ${
-                        activeAccordion === idx ? 'max-h-60 opacity-100 border-t border-slate-50' : 'max-h-0 opacity-0'
-                      }`}>
-                        <p className="p-5 font-sans text-slate-600 text-xs sm:text-sm leading-relaxed font-medium bg-cream/30">
-                          {faq.a}
-                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setActiveAccordion(activeAccordion === idx ? null : idx)}
+                          aria-expanded={activeAccordion === idx}
+                          aria-controls={`service-faq-panel-${idx}`}
+                          id={`service-faq-trigger-${idx}`}
+                          className="w-full flex items-center justify-between p-5 text-left font-serif font-bold text-base sm:text-lg text-secondary hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                        >
+                          <span>{faq.question}</span>
+                          <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${activeAccordion === idx ? 'rotate-180 text-primary' : ''}`} />
+                        </button>
+                        <div
+                          id={`service-faq-panel-${idx}`}
+                          role="region"
+                          aria-labelledby={`service-faq-trigger-${idx}`}
+                          className={`transition-all duration-300 overflow-hidden ${
+                            activeAccordion === idx ? 'max-h-[40rem] opacity-100 border-t border-slate-50' : 'max-h-0 opacity-0'
+                          }`}
+                        >
+                          <div className="p-5 font-sans text-slate-600 text-xs sm:text-sm leading-relaxed font-medium bg-cream/30">
+                            <RichText html={faq.answer} className="prose-p:my-0" />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
             </div>
 

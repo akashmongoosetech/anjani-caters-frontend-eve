@@ -397,6 +397,57 @@ export const api = {
   deleteAllServices: (params?: Record<string, any>) =>
     apiRequest(`/services/delete-all${buildQueryString(params)}`, { method: 'DELETE' }),
 
+  // Service FAQs
+  getServiceFAQs: (serviceId: string, params?: Record<string, any>) =>
+    apiRequest(`/services/${serviceId}/faqs${buildQueryString(params)}`),
+
+  createServiceFAQ: (serviceId: string, payload: any) =>
+    apiRequest(`/services/${serviceId}/faqs`, { method: 'POST', body: JSON.stringify(payload) }),
+
+  updateServiceFAQ: (id: string, payload: any) =>
+    apiRequest(`/service-faqs/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+
+  updateServiceFAQStatus: (id: string, status: string) =>
+    apiRequest(`/service-faqs/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+
+  deleteServiceFAQ: (id: string) =>
+    apiRequest(`/service-faqs/${id}`, { method: 'DELETE' }),
+
+  // Categories
+  getCategories: (params?: Record<string, any>) =>
+    apiRequest(`/categories${buildQueryString(params)}`),
+
+  getCategoryById: (id: string) =>
+    apiRequest(`/categories/${id}`),
+
+  createCategory: (payload: any) =>
+    apiRequest('/categories', { method: 'POST', body: JSON.stringify(payload) }),
+
+  updateCategory: (id: string, payload: any) =>
+    apiRequest(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+
+  deleteCategory: (id: string) =>
+    apiRequest(`/categories/${id}`, { method: 'DELETE' }),
+
+  // Sub-Categories
+  getSubCategories: (params?: Record<string, any>) =>
+    apiRequest(`/subcategories${buildQueryString(params)}`),
+
+  getSubCategoryById: (id: string) =>
+    apiRequest(`/subcategories/${id}`),
+
+  getSubCategoriesByCategory: (categoryId: string, params?: Record<string, any>) =>
+    apiRequest(`/categories/${categoryId}/subcategories${buildQueryString(params)}`),
+
+  createSubCategory: (payload: any) =>
+    apiRequest('/subcategories', { method: 'POST', body: JSON.stringify(payload) }),
+
+  updateSubCategory: (id: string, payload: any) =>
+    apiRequest(`/subcategories/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+
+  deleteSubCategory: (id: string) =>
+    apiRequest(`/subcategories/${id}`, { method: 'DELETE' }),
+
   // Testimonials
   getTestimonials: () =>
     apiRequest('/testimonials'),

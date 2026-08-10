@@ -16,6 +16,8 @@ import {
   AlertCircle,
   X,
   Star,
+  HelpCircle,
+  Save,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import DeleteConfirmModal from "../../components/ui/DeleteConfirmModal";
@@ -23,6 +25,8 @@ import RichEditor from "../../components/ui/RichEditor";
 import RichText from "../../components/ui/RichText";
 import { slugify } from "../../lib/slugify";
 import SEO from "../../components/SEO";
+import ServicesAdminTabs from "../../components/admin/ServicesAdminTabs";
+import type { ServiceFAQ } from "../../types";
 
 interface ServiceItem {
   _id?: string;
@@ -34,12 +38,23 @@ interface ServiceItem {
   icon: string;
   image: string;
   category: string;
+  categoryId?: string;
+  subCategoryId?: string;
+  subCategoryName?: string;
   featured: boolean;
   active: boolean;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string[];
+  faqCount?: number;
   createdAt?: string;
+}
+
+interface CategoryOption {
+  _id: string;
+  id: string;
+  name: string;
+  status: string;
 }
 
 export default function ServicesManagement() {
@@ -72,7 +87,24 @@ export default function ServicesManagement() {
   const [deleteMode, setDeleteMode] = useState<"bulk" | "all" | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
 
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [formSubCategories, setFormSubCategories] = useState<{ _id: string; name: string; status: string }[]>([]);
+  const [subCatsLoading, setSubCatsLoading] = useState(false);
+  const [subCatsError, setSubCatsError] = useState<string | null>(null);
+
+  const [serviceFAQs, setServiceFAQs] = useState<ServiceFAQ[]>([]);
+  const [faqsLoading, setFaqsLoading] = useState(false);
+  const [faqsError, setFaqsError] = useState<string | null>(null);
+  const [faqFormOpen, setFaqFormOpen] = useState(false);
+  const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
+  const [faqDeletingId, setFaqDeletingId] = useState<string | null>(null);
+  const [faqIsDeleting, setFaqIsDeleting] = useState(false);
+  const [faqForm, setFaqForm] = useState<{
+    question: string;
+    answer: string;
+    displayOrder: number;
+    status: "Active" | "Inactive";
+  }>({ question: "", answer: "", displayOrder: 0, status: "Active" });
 
   const [formData, setFormData] = useState<Partial<ServiceItem>>({
     title: "",
@@ -81,7 +113,8 @@ export default function ServicesManagement() {
     fullDescription: "",
     icon: "Sparkles",
     image: "https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&q=80",
-    category: "General",
+    categoryId: "",
+    subCategoryId: "",
     featured: false,
     active: true,
     seoTitle: "",
@@ -105,7 +138,7 @@ export default function ServicesManagement() {
     try {
       const params: Record<string, any> = {
         search: searchQuery || undefined,
-        category: activeCategory !== "All" ? activeCategory : undefined,
+        categoryId: activeCategory !== "All" ? activeCategory : undefined,
         active: activeStatus !== "All" ? activeStatus : undefined,
         sortBy,
         page,
@@ -124,11 +157,6 @@ export default function ServicesManagement() {
         if ((d.services || []).length === 0 && page > 1) {
           setPage(1);
         }
-        const cats = [...new Set((d.services || []).map((s: any) => s.category).filter(Boolean))] as string[];
-        setCategories((prev) => {
-          const merged = new Set([...prev, ...cats]);
-          return [...merged].sort();
-        });
       } else {
         setError(res.error || "Failed to fetch services");
       }
@@ -136,6 +164,197 @@ export default function ServicesManagement() {
       setError(err.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const res = await api.getCategories({ limit: 100, sortBy: "displayOrder" });
+      if (res.success && res.data) {
+        const list = res.data.categories || [];
+        setCategories(
+          list.map((c: any) => ({
+            _id: c._id || c.id,
+            id: c._id || c.id,
+            name: c.name,
+            status: c.status,
+          }))
+        );
+      }
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const toId = (value: any): string => {
+    if (!value) return "";
+    if (typeof value === "object") return value._id || value.id || "";
+    return String(value);
+  };
+
+  const loadSubCategoriesForCategory = async (rawCategoryId: any) => {
+    const categoryId = toId(rawCategoryId);
+    if (!categoryId) {
+      setFormSubCategories([]);
+      setSubCatsError(null);
+      setSubCatsLoading(false);
+      return;
+    }
+    if ((import.meta as any).env?.DEV) console.log("[SubCategories] Selected categoryId:", categoryId);
+    setSubCatsLoading(true);
+    setSubCatsError(null);
+    try {
+      const res = await api.getSubCategoriesByCategory(categoryId, { status: "Active", limit: 100 });
+      if ((import.meta as any).env?.DEV) console.log("[SubCategories] API response:", res);
+      if (!res.success) {
+        setFormSubCategories([]);
+        setSubCatsError(res.error || "Failed to load sub-categories");
+        return;
+      }
+      const list = (res.data?.subCategories) || [];
+      const mapped = list.map((s: any) => ({ _id: s._id || s.id, name: s.name, status: s.status }));
+      if ((import.meta as any).env?.DEV) console.log("[SubCategories] Parsed", mapped.length, "items:", mapped);
+      setFormSubCategories(mapped);
+    } catch (err: any) {
+      if ((import.meta as any).env?.DEV) console.error("[SubCategories] Request failed:", err);
+      setFormSubCategories([]);
+      setSubCatsError(err?.message || "Failed to load sub-categories");
+    } finally {
+      setSubCatsLoading(false);
+    }
+  };
+
+  const loadServiceFAQs = async (serviceId: string) => {
+    if (!serviceId) {
+      setServiceFAQs([]);
+      setFaqsError(null);
+      setFaqsLoading(false);
+      return;
+    }
+    setFaqsLoading(true);
+    setFaqsError(null);
+    try {
+      const res = await api.getServiceFAQs(serviceId, { status: "All" });
+      if (!res.success) {
+        setServiceFAQs([]);
+        setFaqsError(res.error || "Failed to load FAQs");
+        return;
+      }
+      const list = (res.data?.serviceFAQs) || [];
+      const mapped = list.map((f: any) => ({
+        ...f,
+        _id: f._id || f.id,
+        id: f._id || f.id,
+        displayOrder: f.displayOrder ?? 0,
+        status: f.status === "Inactive" ? "Inactive" : "Active",
+      }));
+      setServiceFAQs(mapped);
+    } catch (err: any) {
+      setServiceFAQs([]);
+      setFaqsError(err?.message || "Failed to load FAQs");
+    } finally {
+      setFaqsLoading(false);
+    }
+  };
+
+  const resetFaqForm = () => {
+    setFaqForm({ question: "", answer: "", displayOrder: 0, status: "Active" });
+    setEditingFaqId(null);
+  };
+
+  const handleOpenAddFaq = () => {
+    resetFaqForm();
+    setFaqFormOpen(true);
+  };
+
+  const handleOpenEditFaq = (faq: ServiceFAQ) => {
+    setEditingFaqId(faq._id || faq.id || null);
+    setFaqForm({
+      question: faq.question || "",
+      answer: faq.answer || "",
+      displayOrder: faq.displayOrder ?? 0,
+      status: faq.status === "Inactive" ? "Inactive" : "Active",
+    });
+    setFaqFormOpen(true);
+  };
+
+  const handleSaveFaq = async () => {
+    const serviceId = editingItem?._id || editingItem?.id;
+    if (!serviceId) {
+      showToast("error", "Cannot save FAQ: service not loaded.");
+      return;
+    }
+    if (!faqForm.question.trim()) {
+      showToast("error", "FAQ question is required.");
+      return;
+    }
+    const strippedAnswer = (faqForm.answer || "").replace(/<[^>]*>/g, "").trim();
+    if (!strippedAnswer) {
+      showToast("error", "FAQ answer is required.");
+      return;
+    }
+    const payload = {
+      question: faqForm.question.trim(),
+      answer: faqForm.answer,
+      displayOrder: Number(faqForm.displayOrder) || 0,
+      status: faqForm.status,
+    };
+    try {
+      const res = editingFaqId
+        ? await api.updateServiceFAQ(editingFaqId, payload)
+        : await api.createServiceFAQ(serviceId, payload);
+      if (res.success) {
+        showToast("success", editingFaqId ? "FAQ updated successfully" : "FAQ added successfully");
+        setFaqFormOpen(false);
+        resetFaqForm();
+        await loadServiceFAQs(serviceId);
+        fetchServices();
+      } else {
+        showToast("error", res.error || "Failed to save FAQ");
+      }
+    } catch (err: any) {
+      showToast("error", err.message || "An error occurred while saving the FAQ");
+    }
+  };
+
+  const handleDeleteFaq = async () => {
+    if (!faqDeletingId) return;
+    setFaqIsDeleting(true);
+    try {
+      const res = await api.deleteServiceFAQ(faqDeletingId);
+      if (res.success) {
+        showToast("success", "FAQ deleted successfully");
+        const serviceId = editingItem?._id || editingItem?.id;
+        if (serviceId) await loadServiceFAQs(serviceId);
+        fetchServices();
+      } else {
+        showToast("error", res.error || "Failed to delete FAQ");
+      }
+    } catch (err: any) {
+      showToast("error", err.message || "Error deleting FAQ");
+    }
+    setFaqIsDeleting(false);
+    setFaqDeletingId(null);
+  };
+
+  const handleToggleFaqStatus = async (faq: ServiceFAQ) => {
+    const id = faq._id || faq.id;
+    if (!id) return;
+    const newStatus = faq.status === "Active" ? "Inactive" : "Active";
+    try {
+      const res = await api.updateServiceFAQStatus(id, newStatus);
+      if (res.success) {
+        showToast("success", newStatus === "Active" ? "FAQ activated" : "FAQ deactivated");
+        const serviceId = editingItem?._id || editingItem?.id;
+        if (serviceId) await loadServiceFAQs(serviceId);
+        fetchServices();
+      } else {
+        showToast("error", res.error || "Failed to update FAQ status");
+      }
+    } catch (_) {
+      showToast("error", "Failed to update FAQ status");
     }
   };
 
@@ -182,13 +401,22 @@ export default function ServicesManagement() {
       fullDescription: "",
       icon: "Sparkles",
       image: "https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&q=80",
-      category: "General",
+      categoryId: "",
+      subCategoryId: "",
       featured: false,
       active: true,
       seoTitle: "",
       seoDescription: "",
       seoKeywords: [],
     });
+    setFormSubCategories([]);
+    setSubCatsError(null);
+    setSubCatsLoading(false);
+    setServiceFAQs([]);
+    setFaqsError(null);
+    setFaqsLoading(false);
+    setFaqFormOpen(false);
+    resetFaqForm();
     setIsFormOpen(true);
   };
 
@@ -196,17 +424,38 @@ export default function ServicesManagement() {
     slugManuallyEdited.current = true;
     setEditingItem(item);
     const id = item._id || item.id;
+    setFaqFormOpen(false);
+    resetFaqForm();
     if (id) {
       try {
         const res = await api.getServiceBySlug(item.slug);
         if (res.success && res.data) {
-          setFormData({ ...res.data, seoKeywords: res.data.seoKeywords || [] });
+          const data = res.data;
+          const catId = toId(data.categoryId);
+          const subId = toId(data.subCategoryId);
+          setFormData({ ...data, categoryId: catId, subCategoryId: subId, seoKeywords: data.seoKeywords || [] });
+          if (catId) {
+            await loadSubCategoriesForCategory(catId);
+          } else {
+            setFormSubCategories([]);
+            setSubCatsError(null);
+          }
+          await loadServiceFAQs(id);
           setIsFormOpen(true);
           return;
         }
       } catch (_) {}
     }
-    setFormData({ ...item, seoKeywords: item.seoKeywords || [] });
+    const catId = toId(item.categoryId);
+    const subId = toId(item.subCategoryId);
+    setFormData({ ...item, categoryId: catId, subCategoryId: subId, seoKeywords: item.seoKeywords || [] });
+    if (catId) {
+      await loadSubCategoriesForCategory(catId);
+    } else {
+      setFormSubCategories([]);
+      setSubCatsError(null);
+    }
+    await loadServiceFAQs(id);
     setIsFormOpen(true);
   };
 
@@ -221,9 +470,16 @@ export default function ServicesManagement() {
       showToast("error", "Short Description cannot be empty.");
       return;
     }
+    if (!formData.categoryId) {
+      showToast("error", "Please select a Category.");
+      return;
+    }
 
+    const { category, ...rest } = formData;
     const payload = {
-      ...formData,
+      ...rest,
+      categoryId: formData.categoryId || null,
+      subCategoryId: formData.subCategoryId || null,
       seoTitle: formData.seoTitle || formData.title || "",
       seoDescription: formData.seoDescription || strippedDesc,
       seoKeywords: formData.seoKeywords || [],
@@ -351,7 +607,7 @@ export default function ServicesManagement() {
     try {
       const params: Record<string, any> = {
         search: searchQuery || undefined,
-        category: activeCategory !== "All" ? activeCategory : undefined,
+        categoryId: activeCategory !== "All" ? activeCategory : undefined,
         active: activeStatus !== "All" ? activeStatus : undefined,
       };
       Object.keys(params).forEach((k) => {
@@ -407,6 +663,7 @@ export default function ServicesManagement() {
   return (
     <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
       <SEO title="Service Management - Admin Panel" description="Manage catering services offered, service descriptions, and pricing tiers." urlPath="/admin/services" />
+      <ServicesAdminTabs />
       <AnimatePresence>
         {toast && (
           <motion.div
@@ -476,7 +733,7 @@ export default function ServicesManagement() {
               >
                 <option value="All">All Categories</option>
                 {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c._id} value={c._id}>{c.name}</option>
                 ))}
               </select>
             </div>
@@ -605,6 +862,7 @@ export default function ServicesManagement() {
                   </th>
                   <th className="py-3.5 px-4">Service</th>
                   <th className="py-3.5 px-4">Category</th>
+                  <th className="py-3.5 px-4">FAQs</th>
                   <th className="py-3.5 px-4">Featured</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
@@ -637,8 +895,20 @@ export default function ServicesManagement() {
                         </div>
                       </td>
                       <td className="py-3.5 px-4">
-                        <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold text-[10px]">
-                          {svc.category}
+                        <div className="flex flex-col gap-1">
+                          <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold text-[10px] w-fit">
+                            {svc.category}
+                          </span>
+                          {svc.subCategoryName && (
+                            <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary font-semibold text-[10px] w-fit">
+                              {svc.subCategoryName}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-[10px] w-fit">
+                          {svc.faqCount ?? 0}
                         </span>
                       </td>
                       <td className="py-3.5 px-4">
@@ -769,25 +1039,53 @@ export default function ServicesManagement() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Category</label>
+                  <label className="block font-bold text-slate-700 mb-1">Category *</label>
                   <select
-                    value={formData.category || "General"}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-xs"
+                    required
+                    value={formData.categoryId || ""}
+                    onChange={(e) => {
+                      const catId = e.target.value;
+                      setFormData({ ...formData, categoryId: catId, subCategoryId: "" });
+                      loadSubCategoriesForCategory(catId);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-xs bg-slate-50"
                   >
-                    {categories.length > 0 ? categories.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    )) : (
-                      <>
-                        <option value="General">General</option>
-                        <option value="Wedding">Wedding</option>
-                        <option value="Corporate">Corporate</option>
-                        <option value="Social">Social</option>
-                        <option value="Buffet">Buffet</option>
-                        <option value="Cocktail">Cocktail</option>
-                      </>
-                    )}
+                    <option value="">Select a category...</option>
+                    {categories.map((c) => (
+                      <option key={c._id} value={c._id}>{c.name}</option>
+                    ))}
                   </select>
+                  {categories.length === 0 && (
+                    <p className="text-[10px] text-amber-600 mt-1">
+                      No categories yet. Create categories first under Categories.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Sub-Category</label>
+                  <select
+                    value={formData.subCategoryId || ""}
+                    disabled={!formData.categoryId}
+                    onChange={(e) => setFormData({ ...formData, subCategoryId: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-xs bg-slate-50 disabled:opacity-50"
+                  >
+                    <option value="">None</option>
+                    {formSubCategories.map((s) => (
+                      <option key={s._id} value={s._id}>{s.name}</option>
+                    ))}
+                  </select>
+                  <p className={`text-[10px] mt-1 ${subCatsError ? "text-rose-500 font-semibold" : "text-slate-400"}`}>
+                    {!formData.categoryId
+                      ? "Select a category first."
+                      : subCatsLoading
+                        ? "Loading sub-categories..."
+                        : subCatsError
+                          ? subCatsError
+                          : formSubCategories.length === 0
+                            ? "No sub-categories available."
+                            : "Loads only sub-categories of the selected category."}
+                  </p>
                 </div>
 
                 <div>
@@ -865,6 +1163,191 @@ export default function ServicesManagement() {
                     minHeight="300px"
                   />
                 </div>
+
+                {editingItem && (
+                  <div className="sm:col-span-2 mt-4 border border-slate-200 rounded-xl overflow-hidden">
+                    <div className="px-4 py-3 bg-slate-50 flex items-center justify-between border-b border-slate-200">
+                      <span className="font-bold text-slate-700 text-xs flex items-center gap-2">
+                        <HelpCircle className="w-3.5 h-3.5 text-primary" />
+                        FAQs
+                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                          {serviceFAQs.length}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleOpenAddFaq}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-secondary text-[11px] font-bold hover:bg-primary/90 transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add FAQ
+                      </button>
+                    </div>
+
+                    <div className="p-4 space-y-3 bg-white">
+                      {faqsLoading ? (
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <RefreshCw className="w-4 h-4 animate-spin text-primary" />
+                          Loading FAQs...
+                        </div>
+                      ) : faqsError ? (
+                        <div className="flex items-center justify-between gap-2 text-xs text-rose-500">
+                          <span className="flex items-center gap-2 font-semibold">
+                            <AlertCircle className="w-4 h-4" />
+                            {faqsError}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => loadServiceFAQs(editingItem._id || editingItem.id || "")}
+                            className="px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold cursor-pointer"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      ) : serviceFAQs.length === 0 ? (
+                        <p className="text-xs text-slate-400 text-center py-3">
+                          No FAQs yet. Click "Add FAQ" to create one.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {serviceFAQs.map((faq) => {
+                            const faqId = faq._id || faq.id;
+                            return (
+                              <div key={faqId} className="flex items-start justify-between gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/60">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-bold text-slate-800">{faq.question}</span>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                      faq.status === "Active"
+                                        ? "bg-emerald-100 text-emerald-800"
+                                        : "bg-rose-100 text-rose-800"
+                                    }`}>
+                                      {faq.status}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-mono">
+                                      order {faq.displayOrder ?? 0}
+                                    </span>
+                                  </div>
+                                  <RichText
+                                    html={faq.answer || ""}
+                                    className="mt-1 text-[11px] text-slate-500 prose-p:text-[11px] prose-p:my-0 prose-p:line-clamp-2"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleFaqStatus(faq)}
+                                    className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                                      faq.status === "Active"
+                                        ? "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
+                                        : "bg-rose-50 text-rose-500 border-rose-200 hover:bg-rose-100"
+                                    }`}
+                                    title={faq.status === "Active" ? "Deactivate FAQ" : "Activate FAQ"}
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditFaq(faq)}
+                                    className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-primary hover:border-primary/40 cursor-pointer transition-colors"
+                                    title="Edit FAQ"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setFaqDeletingId(faqId)}
+                                    className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-rose-600 hover:border-rose-300 cursor-pointer transition-colors"
+                                    title="Delete FAQ"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {faqFormOpen && (
+                        <div className="mt-3 p-3 rounded-xl border border-primary/30 bg-primary/5 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-700">
+                              {editingFaqId ? "Edit FAQ" : "New FAQ"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => { setFaqFormOpen(false); resetFaqForm(); }}
+                              className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Question *</label>
+                            <input
+                              type="text"
+                              value={faqForm.question}
+                              onChange={(e) => setFaqForm({ ...faqForm, question: e.target.value })}
+                              placeholder="e.g., Can you handle weddings with 500+ guests?"
+                              className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Answer *</label>
+                            <RichEditor
+                              simple
+                              value={faqForm.answer}
+                              onChange={(html) => setFaqForm({ ...faqForm, answer: html })}
+                              placeholder="Write the FAQ answer..."
+                              minHeight="120px"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">Display Order</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={faqForm.displayOrder}
+                                onChange={(e) => setFaqForm({ ...faqForm, displayOrder: Number(e.target.value) || 0 })}
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-1">Status</label>
+                              <select
+                                value={faqForm.status}
+                                onChange={(e) => setFaqForm({ ...faqForm, status: e.target.value as "Active" | "Inactive" })}
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-xs bg-slate-50"
+                              >
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => { setFaqFormOpen(false); resetFaqForm(); }}
+                              className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-[11px] font-bold hover:bg-slate-200 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSaveFaq}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-secondary text-[11px] font-bold hover:bg-primary/90 cursor-pointer"
+                            >
+                              <Save className="w-3.5 h-3.5" />
+                              {editingFaqId ? "Update FAQ" : "Save FAQ"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="sm:col-span-2 mt-4 border border-slate-200 rounded-xl overflow-hidden">
                   <button
@@ -976,6 +1459,16 @@ export default function ServicesManagement() {
         message="This will permanently delete all services matching the current search & filter criteria. This action cannot be undone."
         itemName="all matching services"
         isLoading={isDeleting}
+      />
+
+      {/* Delete FAQ Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!faqDeletingId}
+        onClose={() => setFaqDeletingId(null)}
+        onConfirm={handleDeleteFaq}
+        title="Delete FAQ"
+        itemName="this FAQ"
+        isLoading={faqIsDeleting}
       />
 
       {viewingItem && (

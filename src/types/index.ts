@@ -22,11 +22,48 @@ export interface Service {
   icon: string;
   image: string;
   category: string;
+  categoryId?: string;
+  subCategoryId?: string;
+  categoryName?: string;
+  subCategoryName?: string;
+  categorySlug?: string;
+  subCategorySlug?: string;
   featured: boolean;
   active: boolean;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Category {
+  _id: string;
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  image: string;
+  status: 'Active' | 'Inactive';
+  displayOrder: number;
+  subCategoryCount?: number;
+  serviceCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SubCategory {
+  _id: string;
+  id: string;
+  categoryId: string;
+  name: string;
+  slug: string;
+  description: string;
+  image: string;
+  status: 'Active' | 'Inactive';
+  displayOrder: number;
+  category?: Category | null;
+  serviceCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -91,6 +128,18 @@ export interface FAQItem {
   category: 'General' | 'Pricing' | 'Services' | 'Menu';
   question: string;
   answer: string;
+}
+
+export interface ServiceFAQ {
+  _id: string;
+  id: string;
+  serviceId: string;
+  question: string;
+  answer: string;
+  displayOrder: number;
+  status: 'Active' | 'Inactive';
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface BlogComment {

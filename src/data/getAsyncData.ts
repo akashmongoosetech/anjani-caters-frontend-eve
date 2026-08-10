@@ -1,5 +1,5 @@
 import { api } from '../lib/api';
-import type { Service, MenuItem, CateringPackage, Project, TeamMember, Testimonial, FAQItem, BlogPost, BlogComment, GalleryItem } from '../types';
+import type { Service, MenuItem, CateringPackage, Project, TeamMember, Testimonial, FAQItem, BlogPost, BlogComment, GalleryItem, Category, SubCategory, ServiceFAQ } from '../types';
 import type { TestimonialItem } from './testimonialsData';
 
 function mapService(item: any): Service {
@@ -13,11 +13,65 @@ function mapService(item: any): Service {
     icon: item.icon || 'Sparkles',
     image: item.image || '',
     category: item.category || 'General',
+    categoryId: item.categoryId || undefined,
+    subCategoryId: item.subCategoryId || undefined,
+    categoryName: item.categoryName || item.categoryId?.name || item.category || 'General',
+    subCategoryName: item.subCategoryName || item.subCategoryId?.name || '',
+    categorySlug: item.categorySlug || item.categoryId?.slug || '',
+    subCategorySlug: item.subCategorySlug || item.subCategoryId?.slug || '',
     featured: Boolean(item.featured),
     active: item.active !== false,
     seoTitle: item.seoTitle || '',
     seoDescription: item.seoDescription || '',
     seoKeywords: item.seoKeywords || [],
+    createdAt: item.createdAt || '',
+    updatedAt: item.updatedAt || '',
+  };
+}
+
+function mapServiceFAQ(item: any): ServiceFAQ {
+  return {
+    _id: item._id || item.id || '',
+    id: item._id || item.id || '',
+    serviceId: item.serviceId || '',
+    question: item.question || '',
+    answer: item.answer || '',
+    displayOrder: item.displayOrder ?? 0,
+    status: item.status === 'Inactive' ? 'Inactive' : 'Active',
+    createdAt: item.createdAt || '',
+    updatedAt: item.updatedAt || '',
+  };
+}
+
+function mapCategory(item: any): Category {  return {
+    _id: item._id || item.id || '',
+    id: item._id || item.id || '',
+    name: item.name || '',
+    slug: item.slug || '',
+    description: item.description || '',
+    image: item.image || '',
+    status: item.status === 'Inactive' ? 'Inactive' : 'Active',
+    displayOrder: item.displayOrder ?? 0,
+    subCategoryCount: item.subCategoryCount ?? 0,
+    serviceCount: item.serviceCount ?? 0,
+    createdAt: item.createdAt || '',
+    updatedAt: item.updatedAt || '',
+  };
+}
+
+function mapSubCategory(item: any): SubCategory {
+  return {
+    _id: item._id || item.id || '',
+    id: item._id || item.id || '',
+    categoryId: item.categoryId?._id || item.categoryId || '',
+    name: item.name || '',
+    slug: item.slug || '',
+    description: item.description || '',
+    image: item.image || '',
+    status: item.status === 'Inactive' ? 'Inactive' : 'Active',
+    displayOrder: item.displayOrder ?? 0,
+    category: item.category ? mapCategory(item.category) : null,
+    serviceCount: item.serviceCount ?? 0,
     createdAt: item.createdAt || '',
     updatedAt: item.updatedAt || '',
   };
@@ -166,7 +220,7 @@ function mapBlog(item: any): BlogPost {
 function extractList(data: any): any[] {
   if (Array.isArray(data)) return data;
   if (data && typeof data === 'object') {
-    return data.data || data.gallery || data.items || data.services || data.packages || data.projects || data.members || data.testimonials || data.faqs || data.posts || data.blogs || data.contacts || data.orders || data.bookings || [];
+    return data.data || data.gallery || data.items || data.services || data.packages || data.projects || data.members || data.testimonials || data.faqs || data.posts || data.blogs || data.contacts || data.orders || data.bookings || data.categories || data.subCategories || data.serviceFAQs || [];
   }
   return [];
 }
@@ -182,12 +236,62 @@ export async function getServices(lang: string): Promise<Service[]> {
   return [];
 }
 
+export async function getServicesFiltered(categorySlug?: string, subcategorySlug?: string): Promise<Service[]> {
+  try {
+    const res = await api.getServices({
+      active: 'true',
+      limit: 100,
+      category: categorySlug || undefined,
+      subcategory: subcategorySlug || undefined,
+    });
+    if (res.success && res.data) {
+      const list = extractList(res.data);
+      if (list.length > 0) return list.map(mapService);
+    }
+  } catch {}
+  return [];
+}
+
 export async function getServiceBySlug(slug: string, lang: string): Promise<Service | null> {
   try {
     const res = await api.getServiceBySlug(slug);
     if (res.success && res.data) return mapService(res.data);
   } catch {}
   return null;
+}
+
+export async function getServiceFAQs(serviceId: string): Promise<ServiceFAQ[]> {
+  if (!serviceId) return [];
+  try {
+    const res = await api.getServiceFAQs(serviceId, { status: 'Active' });
+    if (res.success && res.data) {
+      const list = extractList(res.data);
+      if (list.length > 0) return list.map(mapServiceFAQ);
+    }
+  } catch {}
+  return [];
+}
+
+export async function getCategories(lang: string): Promise<Category[]> {
+  try {
+    const res = await api.getCategories({ status: 'Active', sortBy: 'displayOrder', limit: 100 });
+    if (res.success && res.data) {
+      const list = extractList(res.data);
+      if (list.length > 0) return list.map(mapCategory);
+    }
+  } catch {}
+  return [];
+}
+
+export async function getSubCategoriesByCategory(categoryId: string): Promise<SubCategory[]> {
+  try {
+    const res = await api.getSubCategoriesByCategory(categoryId, { status: 'Active', limit: 100 });
+    if (res.success && res.data) {
+      const list = extractList(res.data);
+      if (list.length > 0) return list.map(mapSubCategory);
+    }
+  } catch {}
+  return [];
 }
 
 export async function getMenuItems(lang: string): Promise<MenuItem[]> {
