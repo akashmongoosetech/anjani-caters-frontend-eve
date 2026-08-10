@@ -79,7 +79,7 @@ export default function Home() {
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20 filter saturate-150 scale-105"
           style={{ backgroundImage: `url('https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1920&q=80')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-secondary via-secondary/95 to-secondary/80" />
+        <div className="absolute inset-0 bg-linear-to-r from-secondary via-secondary/95 to-secondary/80" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
@@ -114,7 +114,7 @@ export default function Home() {
 
             {/* Right Column Visual Collage */}
             <div className="lg:col-span-5 relative hidden sm:block">
-              <div className="relative mx-auto w-full max-w-md h-[420px]">
+              <div className="relative mx-auto w-full max-w-md h-105">
                 <div className="absolute top-0 left-0 w-[85%] h-[80%] rounded-2xl overflow-hidden border-2 border-primary/30 shadow-2xl z-10">
                   <LazyImage
                     src="https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=800&q=80"
@@ -292,7 +292,7 @@ export default function Home() {
                         wrapperClassName="w-full h-full"
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#193221] to-transparent" />
+                      <div className="absolute inset-0 bg-linear-to-t from-[#193221] to-transparent" />
                       <div className="absolute bottom-4 left-4 bg-primary p-3 rounded-xl text-secondary shadow-md">
                         <IconComp className="w-5 h-5" />
                       </div>
@@ -391,7 +391,7 @@ export default function Home() {
                     {item.description}
                   </p>
                   <div className="flex flex-wrap gap-1.5 mt-1">
-                    {item.tags.map((tTag, idx) => (
+                    {item.tags.map((tTag: string, idx: number) => (
                       <span key={idx} className="bg-linen text-slate-600 font-sans text-[10px] font-semibold px-2 py-0.5 rounded-md">
                         {tTag}
                       </span>
@@ -457,7 +457,7 @@ export default function Home() {
                     {pkg.description}
                   </p>
                   <div className="space-y-3 mb-8 text-left">
-                    {pkg.features.map((feat, idx) => (
+                    {pkg.features.map((feat: string, idx: number) => (
                       <div key={idx} className="flex items-start gap-2.5 text-xs text-slate-700 font-medium">
                         <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                         <span>{feat}</span>
@@ -527,7 +527,7 @@ export default function Home() {
                     {isOpen ? <ChevronUp className="w-5 h-5 text-primary shrink-0" /> : <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />}
                   </button>
                   {isOpen && (
-                    <div className="px-6 pb-6 pt-0 font-sans text-slate-600 text-xs sm:text-sm leading-relaxed border-t border-slate-50 mt-1 pt-4">
+                    <div className="px-6 pb-6 font-sans text-slate-600 text-xs sm:text-sm leading-relaxed border-t border-slate-50 mt-1 pt-4">
                       {faq.answer}
                     </div>
                   )}

@@ -71,7 +71,7 @@ export default function Contacts() {
       await api.updateContactStatus(id, status);
       setContacts(prev => prev.map(c => c._id === id || c.id === id ? { ...c, status } : c));
       if (selectedInquiry && (selectedInquiry._id === id || selectedInquiry.id === id)) {
-        setSelectedInquiry(prev => prev ? { ...prev, status } : null);
+        setSelectedInquiry((prev: any) => prev ? { ...prev, status } : null);
       }
     } catch (err) {
       console.error('Failed to update contact status', err);
@@ -258,7 +258,7 @@ export default function Contacts() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className={`fixed top-5 right-5 z-[60] px-4 py-3 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-2 ${
+            className={`fixed top-5 right-5 z-60 px-4 py-3 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-2 ${
               toast.type === 'success'
                 ? 'bg-emerald-900/90 text-white border-emerald-500'
                 : 'bg-rose-900/90 text-white border-rose-500'
@@ -507,7 +507,7 @@ export default function Contacts() {
               <div className="flex items-center justify-between border-b border-slate-50 pb-4">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Inquiry ID: {((selectedInquiry._id || selectedInquiry.id) || '').toString().toUpperCase()}</span>
-                  <h4 className="font-serif text-lg font-bold text-secondary mt-1 font-sans">Message Detail</h4>
+                  <h4 className="font-serif text-lg font-bold text-secondary mt-1">Message Detail</h4>
                 </div>
                 <button 
                   onClick={() => setSelectedInquiry(null)}

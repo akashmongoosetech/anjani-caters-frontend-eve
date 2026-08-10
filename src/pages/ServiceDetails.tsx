@@ -76,7 +76,7 @@ export default function ServiceDetails() {
     breadcrumbs.push({ name: service.categoryName || service.category, path: `/services?category=${service.categorySlug}` });
   }
   if (service.subCategorySlug && service.categorySlug) {
-    breadcrumbs.push({ name: service.subCategoryName, path: `/services?category=${service.categorySlug}&subcategory=${service.subCategorySlug}` });
+    breadcrumbs.push({ name: service.subCategoryName || service.categoryName || service.title, path: `/services?category=${service.categorySlug}&subcategory=${service.subCategorySlug}` });
   }
   breadcrumbs.push({ name: service.title });
 
@@ -169,7 +169,7 @@ export default function ServiceDetails() {
                           role="region"
                           aria-labelledby={`service-faq-trigger-${idx}`}
                           className={`transition-all duration-300 overflow-hidden ${
-                            activeAccordion === idx ? 'max-h-[40rem] opacity-100 border-t border-slate-50' : 'max-h-0 opacity-0'
+                            activeAccordion === idx ? 'max-h-160 opacity-100 border-t border-slate-50' : 'max-h-0 opacity-0'
                           }`}
                         >
                           <div className="p-5 font-sans text-slate-600 text-xs sm:text-sm leading-relaxed font-medium bg-cream/30">

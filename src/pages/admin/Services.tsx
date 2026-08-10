@@ -423,7 +423,7 @@ export default function ServicesManagement() {
   const handleOpenEdit = async (item: ServiceItem) => {
     slugManuallyEdited.current = true;
     setEditingItem(item);
-    const id = item._id || item.id;
+    const id = item._id || item.id || "";
     setFaqFormOpen(false);
     resetFaqForm();
     if (id) {
@@ -712,7 +712,7 @@ export default function ServicesManagement() {
 
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
-          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-[280px]">
+          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-70">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -1364,7 +1364,7 @@ export default function ServicesManagement() {
                   {showSeo && (
                     <div className="p-4 space-y-4 bg-white">
                       <div>
-                        <label className="block font-bold text-slate-700 mb-1 flex items-center justify-between">
+                        <label className="font-bold text-slate-700 mb-1 flex items-center justify-between">
                           <span>Meta Title</span>
                           <span className={`text-[10px] font-mono font-bold ${(formData.seoTitle || '').length > 60 ? 'text-red-500' : (formData.seoTitle || '').length > 48 ? 'text-amber-500' : 'text-emerald-500'}`}>
                             {(formData.seoTitle || '').length} / 60
@@ -1380,7 +1380,7 @@ export default function ServicesManagement() {
                         />
                       </div>
                       <div>
-                        <label className="block font-bold text-slate-700 mb-1 flex items-center justify-between">
+                        <label className="font-bold text-slate-700 mb-1 flex items-center justify-between">
                           <span>Meta Description</span>
                           <span className={`text-[10px] font-mono font-bold ${(formData.seoDescription || '').length > 160 ? 'text-red-500' : (formData.seoDescription || '').length > 128 ? 'text-amber-500' : 'text-emerald-500'}`}>
                             {(formData.seoDescription || '').length} / 160

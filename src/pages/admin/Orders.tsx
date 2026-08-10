@@ -54,7 +54,7 @@ export default function Orders() {
       await api.updateOrderStatus(id, status);
       setOrders(prev => prev.map(o => o._id === id ? { ...o, status } : o));
       if (selectedOrder && selectedOrder._id === id) {
-        setSelectedOrder(prev => prev ? { ...prev, status } : null);
+        setSelectedOrder((prev: any) => prev ? { ...prev, status } : null);
       }
     } catch (err) {
       console.error('Failed to update order status', err);
@@ -234,7 +234,7 @@ export default function Orders() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className={`fixed top-5 right-5 z-[60] px-4 py-3 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-2 ${
+            className={`fixed top-5 right-5 z-60 px-4 py-3 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-2 ${
               toast.type === 'success'
                 ? 'bg-emerald-900/90 text-white border-emerald-500'
                 : 'bg-rose-900/90 text-white border-rose-500'
@@ -472,7 +472,7 @@ export default function Orders() {
                   </div>
                   <div className="flex justify-between text-xs font-bold text-slate-600">
                     <span>Catering Pack:</span>
-                    <span className="text-slate-800 text-right max-w-[120px] truncate">{selectedOrder.items?.[0]?.title || selectedOrder.deliveryAddress || '—'}</span>
+                    <span className="text-slate-800 text-right max-w-30 truncate">{selectedOrder.items?.[0]?.title || selectedOrder.deliveryAddress || '—'}</span>
                   </div>
                   <div className="flex justify-between text-xs font-extrabold text-secondary border-t border-dashed border-slate-200 pt-2.5">
                     <span>Total Amount:</span>
