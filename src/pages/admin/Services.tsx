@@ -67,6 +67,11 @@ export default function ServicesManagement() {
   const slugManuallyEdited = useRef(false);
   const [showSeo, setShowSeo] = useState(false);
 
+  // Bulk selection state (persists across pagination)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteMode, setDeleteMode] = useState<"bulk" | "all" | null>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
   const [categories, setCategories] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<Partial<ServiceItem>>({
@@ -116,6 +121,9 @@ export default function ServicesManagement() {
         setServices(d.services || []);
         setTotalCount(d.total || 0);
         setTotalPages(d.totalPages || 1);
+        if ((d.services || []).length === 0 && page > 1) {
+          setPage(1);
+        }
         const cats = [...new Set((d.services || []).map((s: any) => s.category).filter(Boolean))] as string[];
         setCategories((prev) => {
           const merged = new Set([...prev, ...cats]);
@@ -258,6 +266,113 @@ export default function ServicesManagement() {
     }
     setIsDeleting(false);
     setDeletingId(null);
+  };
+
+  // ---- Bulk selection helpers ----
+  const pageIds = services.map((s) => s._id || s.id || "").filter(Boolean);
+  const pageSelectedCount = pageIds.filter((id) => selectedIds.has(id)).length;
+  const allPageSelected = pageIds.length > 0 && pageSelectedCount === pageIds.length;
+  const somePageSelected = pageSelectedCount > 0 && !allPageSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = somePageSelected;
+    }
+  }, [somePageSelected]);
+
+  const toggleSelect = (id: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    if (!id) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAllToggle = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        pageIds.forEach((id) => next.delete(id));
+      } else {
+        pageIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteMode("bulk");
+  };
+
+  const handleDeleteAll = () => {
+    setDeleteMode("all");
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsDeleting(true);
+    const ids = Array.from(selectedIds);
+    try {
+      const res = await api.deleteServicesBulk(ids);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? ids.length;
+        setServices((prev) =>
+          prev.filter((s) => {
+            const id = s._id || s.id;
+            return !(id && selectedIds.has(id));
+          })
+        );
+        setTotalCount((prev) => Math.max(0, prev - deletedCount));
+        if (viewingItem && selectedIds.has(viewingItem._id || viewingItem.id || "")) {
+          setViewingItem(null);
+        }
+        clearSelection();
+        showToast("success", `${deletedCount} service(s) deleted successfully`);
+        fetchServices();
+      } else {
+        showToast("error", res.error || "Failed to delete services");
+      }
+    } catch (err: any) {
+      console.error("Failed to bulk delete services:", err);
+      showToast("error", err.message || "Failed to delete services");
+    }
+    setIsDeleting(false);
+    setDeleteMode(null);
+  };
+
+  const confirmDeleteAll = async () => {
+    setIsDeleting(true);
+    try {
+      const params: Record<string, any> = {
+        search: searchQuery || undefined,
+        category: activeCategory !== "All" ? activeCategory : undefined,
+        active: activeStatus !== "All" ? activeStatus : undefined,
+      };
+      Object.keys(params).forEach((k) => {
+        if (params[k] === undefined) delete params[k];
+      });
+      const res = await api.deleteAllServices(params);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? 0;
+        clearSelection();
+        setViewingItem(null);
+        showToast("success", `${deletedCount} service(s) deleted successfully`);
+        fetchServices();
+      } else {
+        showToast("error", res.error || "Failed to delete services");
+      }
+    } catch (err: any) {
+      console.error("Failed to delete all services:", err);
+      showToast("error", err.message || "Failed to delete services");
+    }
+    setIsDeleting(false);
+    setDeleteMode(null);
   };
 
   const handleToggleActive = async (item: ServiceItem) => {
@@ -412,6 +527,41 @@ export default function ServicesManagement() {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border text-xs transition-colors ${
+        selectedIds.size > 0 ? "bg-rose-50 border-rose-300" : "bg-slate-50 border-slate-200"
+      }`}>
+        <div className="flex items-center gap-2">
+          <Check className={`w-4 h-4 ${selectedIds.size > 0 ? "text-rose-600" : "text-slate-400"}`} />
+          <span className={`font-bold ${selectedIds.size > 0 ? "text-rose-700" : "text-slate-500"}`}>
+            {selectedIds.size > 0 ? `${selectedIds.size} service(s) selected across pages` : "Bulk Actions — tick rows to select them"}
+          </span>
+          {selectedIds.size > 0 && (
+            <button onClick={clearSelection} className="text-slate-500 hover:text-rose-700 underline font-semibold cursor-pointer">
+              Clear selection
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDeleteAll}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+            title="Deletes all services matching the current search & filter criteria"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete All</span>
+          </button>
+          <button
+            onClick={handleDeleteSelected}
+            disabled={selectedIds.size === 0}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete Selected ({selectedIds.size})</span>
+          </button>
+        </div>
+      </div>
+
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-slate-500 space-y-3">
@@ -443,6 +593,16 @@ export default function ServicesManagement() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                  <th className="py-3.5 pl-4 pr-1 w-10">
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      checked={allPageSelected}
+                      onChange={handleSelectAllToggle}
+                      className="w-4 h-4 accent-primary cursor-pointer"
+                      title="Select all services on this page"
+                    />
+                  </th>
                   <th className="py-3.5 px-4">Service</th>
                   <th className="py-3.5 px-4">Category</th>
                   <th className="py-3.5 px-4">Featured</th>
@@ -455,6 +615,14 @@ export default function ServicesManagement() {
                   const id = svc._id || svc.id || "";
                   return (
                     <tr key={id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3.5 pl-4 pr-1 align-top">
+                        <input
+                          type="checkbox"
+                          checked={id ? selectedIds.has(id) : false}
+                          onChange={(e) => toggleSelect(id, e)}
+                          className="w-4 h-4 accent-primary cursor-pointer mt-1"
+                        />
+                      </td>
                       <td className="py-3.5 px-4 max-w-xs">
                         <div className="flex items-center gap-3">
                           <img
@@ -785,6 +953,28 @@ export default function ServicesManagement() {
         onConfirm={handleDelete}
         title="Delete Service"
         itemName="this service"
+        isLoading={isDeleting}
+      />
+
+      {/* Bulk Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === "bulk"}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmBulkDelete}
+        title={`Delete ${selectedIds.size} Service${selectedIds.size === 1 ? "" : "s"}?`}
+        message={`Are you sure you want to permanently delete ${selectedIds.size} selected service(s)? This action cannot be undone.`}
+        itemName={`${selectedIds.size} selected service(s)`}
+        isLoading={isDeleting}
+      />
+
+      {/* Delete All Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === "all"}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmDeleteAll}
+        title="Delete All Services?"
+        message="This will permanently delete all services matching the current search & filter criteria. This action cannot be undone."
+        itemName="all matching services"
         isLoading={isDeleting}
       />
 

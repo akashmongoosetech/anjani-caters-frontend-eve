@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -66,6 +66,18 @@ export default function NotificationsPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Bulk Selection State (persists across pagination, keyed by notification id)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteMode, setDeleteMode] = useState<'bulk' | 'all' | null>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  // Toast
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const showToast = useCallback((type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  }, []);
+
   // Fetch Notifications from Server
   const loadNotifications = useCallback(async () => {
     setLoading(true);
@@ -84,10 +96,16 @@ export default function NotificationsPage() {
 
       const res = await api.getNotifications(params);
       if (res.success && res.data) {
-        setItems(res.data.notifications || []);
+        const list = res.data.notifications || [];
+        setItems(list);
         setTotalCount(res.data.total || 0);
         setTotalPages(res.data.totalPages || 1);
         setUnreadCountPage(res.data.unreadCount || 0);
+
+        // Redirect to a valid page if the current one becomes empty after bulk/all deletion
+        if (list.length === 0 && page > 1) {
+          setPage(1);
+        }
       }
     } catch (err) {
       console.error('Failed to load notifications page:', err);
@@ -176,6 +194,115 @@ export default function NotificationsPage() {
     setDeleteTarget(null);
   };
 
+  // ---- Bulk selection helpers ----
+  const pageIds = items.map(n => n._id || n.id || '');
+  const pageSelectedCount = pageIds.filter(id => id && selectedIds.has(id)).length;
+  const allPageSelected = pageIds.length > 0 && pageSelectedCount === pageIds.length;
+  const somePageSelected = pageSelectedCount > 0 && !allPageSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = somePageSelected;
+    }
+  }, [somePageSelected]);
+
+  const toggleSelect = (id: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    if (!id) return;
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllToggle = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        pageIds.forEach(id => next.delete(id));
+      } else {
+        pageIds.forEach(id => { if (id) next.add(id); });
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  // ---- Bulk / Delete-All actions ----
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteMode('bulk');
+  };
+
+  const handleDeleteAll = () => {
+    setDeleteMode('all');
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsDeleting(true);
+    const ids = Array.from(selectedIds);
+    try {
+      const res = await api.deleteNotificationsBulk(ids);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? ids.length;
+        setItems(prev => prev.filter(n => {
+          const id = n._id || n.id;
+          return !(id && selectedIds.has(id));
+        }));
+        setTotalCount(prev => Math.max(0, prev - deletedCount));
+        setUnreadCountPage(res.data.unreadCount ?? 0);
+        clearSelection();
+        refreshGlobalNotifications();
+        showToast('success', `${deletedCount} notification(s) deleted successfully`);
+        loadNotifications();
+      } else {
+        showToast('error', res.error || 'Failed to delete notifications');
+      }
+    } catch (err) {
+      console.error('Failed to bulk delete notifications:', err);
+      showToast('error', (err as any)?.message || 'Failed to delete notifications');
+    }
+    setIsDeleting(false);
+    setDeleteMode(null);
+  };
+
+  const confirmDeleteAll = async () => {
+    setIsDeleting(true);
+    try {
+      const params = {
+        search: appliedFilters.search,
+        type: appliedFilters.type,
+        priority: appliedFilters.priority,
+        readStatus: appliedFilters.readStatus,
+        startDate: appliedFilters.startDate,
+        endDate: appliedFilters.endDate
+      };
+      const res = await api.deleteAllNotifications(params);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? 0;
+        setUnreadCountPage(res.data.unreadCount ?? 0);
+        clearSelection();
+        refreshGlobalNotifications();
+        showToast('success', `${deletedCount} notification(s) deleted successfully`);
+        loadNotifications();
+      } else {
+        showToast('error', res.error || 'Failed to delete notifications');
+      }
+    } catch (err) {
+      console.error('Failed to delete all notifications:', err);
+      showToast('error', (err as any)?.message || 'Failed to delete notifications');
+    }
+    setIsDeleting(false);
+    setDeleteMode(null);
+  };
+
   const getTypeBadge = (type: string) => {
     switch (type?.toLowerCase()) {
       case 'booking':
@@ -249,6 +376,30 @@ export default function NotificationsPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <SEO title="Notifications - Admin Panel" description="View and manage system notifications and alerts." urlPath="/admin/notifications" />
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`fixed top-5 right-5 z-[60] px-4 py-3 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-2 ${
+              toast.type === 'success'
+                ? 'bg-emerald-900/90 text-white border-emerald-500'
+                : 'bg-rose-900/90 text-white border-rose-500'
+            }`}
+          >
+            {toast.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-rose-400" />
+            )}
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-secondary to-slate-900 text-white p-6 rounded-3xl shadow-xl relative overflow-hidden">
         <div className="relative z-10 space-y-1">
@@ -285,6 +436,14 @@ export default function NotificationsPage() {
             <CheckCheck className="w-4 h-4" />
             <span>Mark All Read</span>
           </button>
+          <button
+            onClick={handleDeleteAll}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold font-sans shadow-md transition-all cursor-pointer"
+            title="Deletes all notifications matching the current search & filter criteria"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete All</span>
+          </button>
         </div>
 
         {/* Decorative background circle */}
@@ -298,6 +457,28 @@ export default function NotificationsPage() {
         onConfirm={confirmDelete}
         title="Delete Notification"
         itemName="this notification"
+        isLoading={isDeleting}
+      />
+
+      {/* Bulk Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === 'bulk'}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmBulkDelete}
+        title={`Delete ${selectedIds.size} Notification${selectedIds.size === 1 ? '' : 's'}?`}
+        message={`Are you sure you want to permanently delete ${selectedIds.size} selected notification(s)? This action cannot be undone.`}
+        itemName={`${selectedIds.size} selected notification(s)`}
+        isLoading={isDeleting}
+      />
+
+      {/* Delete All Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === 'all'}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmDeleteAll}
+        title="Delete All Notifications?"
+        message={`This will permanently delete all ${totalCount} notification(s) matching the current search & filter criteria. This action cannot be undone.`}
+        itemName="all matching notifications"
         isLoading={isDeleting}
       />
 
@@ -410,6 +591,34 @@ export default function NotificationsPage() {
         </form>
       </div>
 
+      {/* Bulk Actions Bar */}
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border text-xs transition-colors ${
+        selectedIds.size > 0 ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 border-slate-200'
+      }`}>
+        <div className="flex items-center gap-2">
+          <CheckCheck className="w-4 h-4 text-slate-400" />
+          <span className={`font-bold ${selectedIds.size > 0 ? 'text-rose-700' : 'text-slate-600'}`}>
+            {selectedIds.size > 0 ? `${selectedIds.size} notification(s) selected across pages` : 'Bulk Actions — tick rows to select them'}
+          </span>
+          {selectedIds.size > 0 && (
+            <button
+              onClick={clearSelection}
+              className="text-slate-500 hover:text-rose-700 underline font-semibold cursor-pointer"
+            >
+              Clear selection
+            </button>
+          )}
+        </div>
+        <button
+          onClick={handleDeleteSelected}
+          disabled={selectedIds.size === 0}
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>Delete Selected ({selectedIds.size})</span>
+        </button>
+      </div>
+
       {/* Sorting & Display Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
         <div className="flex items-center gap-2">
@@ -464,6 +673,16 @@ export default function NotificationsPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-extrabold uppercase text-slate-500 font-sans">
+                  <th className="py-3.5 pl-4 pr-1 w-10">
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      checked={allPageSelected}
+                      onChange={handleSelectAllToggle}
+                      className="w-4 h-4 accent-primary cursor-pointer"
+                      title="Select all on this page"
+                    />
+                  </th>
                   <th className="py-3.5 px-4">Status & Module</th>
                   <th className="py-3.5 px-4">Title & Details</th>
                   <th className="py-3.5 px-4">Priority</th>
@@ -482,6 +701,17 @@ export default function NotificationsPage() {
                         !notif.readStatus ? 'bg-amber-50/30 font-semibold' : ''
                       }`}
                     >
+                      {/* Selection Checkbox */}
+                      <td className="py-3.5 pl-4 pr-1 align-top">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(id)}
+                          onChange={(e) => toggleSelect(id, e)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-4 h-4 accent-primary cursor-pointer mt-0.5"
+                        />
+                      </td>
+
                       {/* Type & Read Indicator */}
                       <td className="py-3.5 px-4 align-top">
                         <div className="flex items-center gap-2">

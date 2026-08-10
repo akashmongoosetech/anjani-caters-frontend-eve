@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { api } from '../../lib/api';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { connectSocket } from '../../lib/socket';
@@ -62,6 +63,18 @@ export default function Bookings() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Bulk selection state (persists across pagination, keyed by booking id)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteMode, setDeleteMode] = useState<'bulk' | 'all' | null>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  // Toast
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const showToast = useCallback((type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  }, []);
+
   // Fetch Bookings from API / Local Storage
   const fetchBookings = useCallback(async () => {
     setLoading(true);
@@ -82,6 +95,9 @@ export default function Bookings() {
         if (Array.isArray(res.data.bookings)) {
           setBookings(res.data.bookings);
           setTotalItems(res.data.total || res.data.bookings.length);
+          if (res.data.bookings.length === 0 && currentPage > 1) {
+            setCurrentPage(1);
+          }
         } else if (Array.isArray(res.data)) {
           setBookings(res.data);
           setTotalItems(res.data.length);
@@ -213,6 +229,110 @@ export default function Bookings() {
     setDeleteTarget(null);
   };
 
+  // ---- Bulk selection helpers ----
+  const pageIds = bookings.map(getId).filter(Boolean);
+  const pageSelectedCount = pageIds.filter(id => selectedIds.has(id)).length;
+  const allPageSelected = pageIds.length > 0 && pageSelectedCount === pageIds.length;
+  const somePageSelected = pageSelectedCount > 0 && !allPageSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = somePageSelected;
+    }
+  }, [somePageSelected]);
+
+  const toggleSelect = (id: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    if (!id) return;
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAllToggle = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        pageIds.forEach(id => next.delete(id));
+      } else {
+        pageIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteMode('bulk');
+  };
+
+  const handleDeleteAll = () => {
+    setDeleteMode('all');
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsDeleting(true);
+    const ids = Array.from(selectedIds);
+    try {
+      const res = await api.deleteBookingsBulk(ids);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? ids.length;
+        setBookings(prev => prev.filter(b => {
+          const id = getId(b);
+          return !(id && selectedIds.has(id));
+        }));
+        setTotalItems(prev => Math.max(0, prev - deletedCount));
+        if (selectedBooking && selectedIds.has(getId(selectedBooking))) {
+          setSelectedBooking(null);
+        }
+        clearSelection();
+        showToast('success', `${deletedCount} booking(s) deleted successfully`);
+        fetchBookings();
+      } else {
+        showToast('error', res.error || 'Failed to delete bookings');
+      }
+    } catch (err) {
+      console.error('Failed to bulk delete bookings:', err);
+      showToast('error', (err as any)?.message || 'Failed to delete bookings');
+    }
+    setIsDeleting(false);
+    setDeleteMode(null);
+  };
+
+  const confirmDeleteAll = async () => {
+    setIsDeleting(true);
+    try {
+      const params = {
+        search: appliedFilters.search || undefined,
+        status: appliedFilters.status !== 'all' ? appliedFilters.status : undefined,
+        eventType: appliedFilters.eventType !== 'all' ? appliedFilters.eventType : undefined,
+        startDate: appliedFilters.startDate || undefined,
+        endDate: appliedFilters.endDate || undefined
+      };
+      const res = await api.deleteAllBookings(params);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? 0;
+        clearSelection();
+        setSelectedBooking(null);
+        showToast('success', `${deletedCount} booking(s) deleted successfully`);
+        fetchBookings();
+      } else {
+        showToast('error', res.error || 'Failed to delete bookings');
+      }
+    } catch (err) {
+      console.error('Failed to delete all bookings:', err);
+      showToast('error', (err as any)?.message || 'Failed to delete bookings');
+    }
+    setIsDeleting(false);
+    setDeleteMode(null);
+  };
+
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
 
   const getStatusBadge = (status: string) => {
@@ -250,6 +370,51 @@ export default function Bookings() {
         itemName="this booking record"
         isLoading={isDeleting}
       />
+
+      {/* Bulk Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === 'bulk'}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmBulkDelete}
+        title={`Delete ${selectedIds.size} Booking${selectedIds.size === 1 ? '' : 's'}?`}
+        message={`Are you sure you want to permanently delete ${selectedIds.size} selected booking(s)? This action cannot be undone.`}
+        itemName={`${selectedIds.size} selected booking(s)`}
+        isLoading={isDeleting}
+      />
+
+      {/* Delete All Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === 'all'}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmDeleteAll}
+        title="Delete All Bookings?"
+        message="This will permanently delete all bookings matching the current search & filter criteria. This action cannot be undone."
+        itemName="all matching bookings"
+        isLoading={isDeleting}
+      />
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`fixed top-5 right-5 z-[60] px-4 py-3 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-2 ${
+              toast.type === 'success'
+                ? 'bg-emerald-900/90 text-white border-emerald-500'
+                : 'bg-rose-900/90 text-white border-rose-500'
+            }`}
+          >
+            {toast.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-400" />
+            )}
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -379,6 +544,41 @@ export default function Bookings() {
         </div>
       </form>
 
+      {/* Bulk Actions Bar */}
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border text-xs transition-colors ${
+        selectedIds.size > 0 ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 border-slate-100'
+      }`}>
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className={`w-4 h-4 ${selectedIds.size > 0 ? 'text-rose-600' : 'text-slate-400'}`} />
+          <span className={`font-bold ${selectedIds.size > 0 ? 'text-rose-700' : 'text-slate-500'}`}>
+            {selectedIds.size > 0 ? `${selectedIds.size} booking(s) selected across pages` : 'Bulk Actions — tick rows to select them'}
+          </span>
+          {selectedIds.size > 0 && (
+            <button onClick={clearSelection} className="text-slate-500 hover:text-rose-700 underline font-semibold cursor-pointer">
+              Clear selection
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDeleteAll}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+            title="Deletes all bookings matching the current search & filter criteria"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete All</span>
+          </button>
+          <button
+            onClick={handleDeleteSelected}
+            disabled={selectedIds.size === 0}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete Selected ({selectedIds.size})</span>
+          </button>
+        </div>
+      </div>
+
       {/* Bookings Table Component */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
         {loading ? (
@@ -398,6 +598,16 @@ export default function Bookings() {
             <table className="w-full text-left border-collapse font-sans text-xs sm:text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <th className="py-3.5 pl-4 pr-1 w-10">
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      checked={allPageSelected}
+                      onChange={handleSelectAllToggle}
+                      className="w-4 h-4 accent-primary cursor-pointer"
+                      title="Select all bookings on this page"
+                    />
+                  </th>
                   <th className="py-3.5 px-4">Ref # / ID</th>
                   <th className="py-3.5 px-4">Customer Name</th>
                   <th className="py-3.5 px-4">Contact</th>
@@ -423,6 +633,15 @@ export default function Bookings() {
                       className="hover:bg-slate-50/70 transition-colors cursor-pointer"
                       onClick={() => setSelectedBooking(b)}
                     >
+                      <td className="py-4 pl-4 pr-1 align-top">
+                        <input
+                          type="checkbox"
+                          checked={bookingId ? selectedIds.has(bookingId) : false}
+                          onChange={(e) => toggleSelect(bookingId, e)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-4 h-4 accent-primary cursor-pointer mt-0.5"
+                        />
+                      </td>
                       <td className="py-4 px-4 font-mono text-xs font-bold text-primary">
                         {displayRef}
                       </td>

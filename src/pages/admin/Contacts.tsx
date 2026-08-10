@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { api } from '../../lib/api';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { connectSocket } from '../../lib/socket';
@@ -20,6 +21,18 @@ export default function Contacts() {
   const [showExportToast, setShowExportToast] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Bulk selection state (persists across list changes)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteMode, setDeleteMode] = useState<'bulk' | 'all' | null>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  // Toast
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const showToast = useCallback((type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  }, []);
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
@@ -87,6 +100,68 @@ export default function Contacts() {
     setDeleteTarget(null);
   };
 
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteMode('bulk');
+  };
+
+  const handleDeleteAll = () => {
+    setDeleteMode('all');
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsDeleting(true);
+    const ids = Array.from(selectedIds);
+    try {
+      const res = await api.deleteContactsBulk(ids);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? ids.length;
+        setContacts(prev => prev.filter(c => {
+          const id = c._id || c.id;
+          return !(id && selectedIds.has(id));
+        }));
+        if (selectedInquiry && (selectedInquiry._id || selectedInquiry.id) && selectedIds.has(selectedInquiry._id || selectedInquiry.id)) {
+          setSelectedInquiry(null);
+        }
+        clearSelection();
+        showToast('success', `${deletedCount} inquiry(ies) deleted successfully`);
+      } else {
+        showToast('error', res.error || 'Failed to delete contacts');
+      }
+    } catch (err) {
+      console.error('Failed to bulk delete contacts:', err);
+      showToast('error', (err as any)?.message || 'Failed to delete contacts');
+    }
+    setIsDeleting(false);
+    setDeleteMode(null);
+  };
+
+  const confirmDeleteAll = async () => {
+    setIsDeleting(true);
+    try {
+      const params = {
+        search: searchQuery || undefined,
+        status: statusFilter === 'all' ? undefined : statusFilter
+      };
+      const res = await api.deleteAllContacts(params);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? 0;
+        clearSelection();
+        setSelectedInquiry(null);
+        showToast('success', `${deletedCount} inquiry(ies) deleted successfully`);
+        fetchContacts();
+      } else {
+        showToast('error', res.error || 'Failed to delete contacts');
+      }
+    } catch (err) {
+      console.error('Failed to delete all contacts:', err);
+      showToast('error', (err as any)?.message || 'Failed to delete contacts');
+    }
+    setIsDeleting(false);
+    setDeleteMode(null);
+  };
+
   const handleExport = () => {
     setShowExportToast(true);
     setTimeout(() => setShowExportToast(false), 3000);
@@ -126,6 +201,43 @@ export default function Contacts() {
     });
   }, [contacts, searchQuery, statusFilter]);
 
+  // ---- Bulk selection helpers ----
+  const visibleIds = filteredContacts.map(c => c._id || c.id || '').filter(Boolean);
+  const pageSelectedCount = visibleIds.filter(id => selectedIds.has(id)).length;
+  const allVisibleSelected = visibleIds.length > 0 && pageSelectedCount === visibleIds.length;
+  const someVisibleSelected = pageSelectedCount > 0 && !allVisibleSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected]);
+
+  const toggleSelect = (id: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    if (!id) return;
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAllToggle = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleIds.forEach(id => next.delete(id));
+      } else {
+        visibleIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
   return (
     <div className="space-y-6 relative">
       <SEO title="Contact Inquiries - Admin Panel" description="Review and respond to customer inquiries submitted through the contact form." urlPath="/admin/contacts" />
@@ -136,6 +248,51 @@ export default function Contacts() {
         onConfirm={confirmDelete}
         title="Delete Inquiry"
         itemName={deleteTarget?.name ? `"${deleteTarget.name}"'s inquiry` : 'this inquiry'}
+        isLoading={isDeleting}
+      />
+
+      {/* Success / Error Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`fixed top-5 right-5 z-[60] px-4 py-3 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-2 ${
+              toast.type === 'success'
+                ? 'bg-emerald-900/90 text-white border-emerald-500'
+                : 'bg-rose-900/90 text-white border-rose-500'
+            }`}
+          >
+            {toast.type === 'success' ? (
+              <Check className="w-5 h-5 text-emerald-400" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-400" />
+            )}
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === 'bulk'}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmBulkDelete}
+        title={`Delete ${selectedIds.size} Inquir${selectedIds.size === 1 ? 'y' : 'ies'}?`}
+        message={`Are you sure you want to permanently delete ${selectedIds.size} selected inquiry(ies)? This action cannot be undone.`}
+        itemName={`${selectedIds.size} selected inquiry(ies)`}
+        isLoading={isDeleting}
+      />
+
+      {/* Delete All Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === 'all'}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmDeleteAll}
+        title="Delete All Inquiries?"
+        message="This will permanently delete all inquiries matching the current search & filter criteria. This action cannot be undone."
+        itemName="all matching inquiries"
         isLoading={isDeleting}
       />
 
@@ -198,6 +355,41 @@ export default function Contacts() {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border text-xs transition-colors ${
+        selectedIds.size > 0 ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 border-slate-100'
+      }`}>
+        <div className="flex items-center gap-2">
+          <Check className={`w-4 h-4 ${selectedIds.size > 0 ? 'text-rose-600' : 'text-slate-400'}`} />
+          <span className={`font-bold ${selectedIds.size > 0 ? 'text-rose-700' : 'text-slate-500'}`}>
+            {selectedIds.size > 0 ? `${selectedIds.size} inquiry(ies) selected` : 'Bulk Actions — tick rows to select them'}
+          </span>
+          {selectedIds.size > 0 && (
+            <button onClick={clearSelection} className="text-slate-500 hover:text-rose-700 underline font-semibold cursor-pointer">
+              Clear selection
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDeleteAll}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+            title="Deletes all inquiries matching the current search & filter criteria"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete All</span>
+          </button>
+          <button
+            onClick={handleDeleteSelected}
+            disabled={selectedIds.size === 0}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete Selected ({selectedIds.size})</span>
+          </button>
+        </div>
+      </div>
+
       {/* Main Grid Panel */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
         {/* Inbox List Table */}
@@ -217,6 +409,16 @@ export default function Contacts() {
               <table className="w-full text-left border-collapse font-sans text-xs sm:text-sm">
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-4 pl-4 pr-1 w-10">
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={handleSelectAllToggle}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                        title="Select all visible inquiries"
+                      />
+                    </th>
                     <th className="py-4 px-5">Client</th>
                     <th className="py-4 px-5">Message Brief</th>
                     <th className="py-4 px-5">Event Profile</th>
@@ -233,6 +435,15 @@ export default function Contacts() {
                       }`}
                       onClick={() => setSelectedInquiry(c)}
                     >
+                      <td className="py-4 pl-4 pr-1 align-top">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(c._id || c.id)}
+                          onChange={(e) => toggleSelect(c._id || c.id, e)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-4 h-4 accent-primary cursor-pointer mt-0.5"
+                        />
+                      </td>
                       <td className="py-4 px-5">
                         <p className="font-bold">{c.name}</p>
                         <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">{c.email}</span>

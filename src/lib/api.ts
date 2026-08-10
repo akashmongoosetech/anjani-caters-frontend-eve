@@ -109,6 +109,12 @@ export const api = {
   deleteBooking: (id: string) =>
     apiRequest(`/bookings/${id}`, { method: 'DELETE' }),
 
+  deleteBookingsBulk: (ids: string[]) =>
+    apiRequest('/bookings/bulk-delete', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+
+  deleteAllBookings: (params?: Record<string, any>) =>
+    apiRequest(`/bookings/delete-all${buildQueryString(params)}`, { method: 'DELETE' }),
+
   // Blogs Management
   getBlogs: (params?: Record<string, any>) =>
     apiRequest(`/blogs${buildQueryString(params)}`),
@@ -143,6 +149,12 @@ export const api = {
 
   deleteMenuItem: (id: string) =>
     apiRequest(`/menu/${id}`, { method: 'DELETE' }),
+
+  deleteMenuItemsBulk: (ids: string[]) =>
+    apiRequest('/menu/bulk-delete', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+
+  deleteAllMenuItems: (params?: Record<string, any>) =>
+    apiRequest(`/menu/delete-all${buildQueryString(params)}`, { method: 'DELETE' }),
 
   // Packages Management
   getPackages: (params?: Record<string, any>) =>
@@ -272,6 +284,12 @@ export const api = {
   deleteNotification: (id: string) =>
     apiRequest(`/notifications/${id}`, { method: 'DELETE' }),
 
+  deleteNotificationsBulk: (ids: string[]) =>
+    apiRequest('/notifications/bulk-delete', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+
+  deleteAllNotifications: (params?: Record<string, any>) =>
+    apiRequest(`/notifications/delete-all${buildQueryString(params)}`, { method: 'DELETE' }),
+
   // Settings
   getSettings: () =>
     apiRequest('/settings'),
@@ -321,6 +339,12 @@ export const api = {
   deleteContact: (id: string) =>
     apiRequest(`/contacts/${id}`, { method: 'DELETE' }),
 
+  deleteContactsBulk: (ids: string[]) =>
+    apiRequest('/contacts/bulk-delete', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+
+  deleteAllContacts: (params?: Record<string, any>) =>
+    apiRequest(`/contacts/delete-all${buildQueryString(params)}`, { method: 'DELETE' }),
+
   // Orders — CRUD
   getOrders: (params?: Record<string, any>) =>
     apiRequest(`/orders${buildQueryString(params)}`),
@@ -333,6 +357,12 @@ export const api = {
 
   deleteOrder: (id: string) =>
     apiRequest(`/orders/${id}`, { method: 'DELETE' }),
+
+  deleteOrdersBulk: (ids: string[]) =>
+    apiRequest('/orders/bulk-delete', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+
+  deleteAllOrders: (params?: Record<string, any>) =>
+    apiRequest(`/orders/delete-all${buildQueryString(params)}`, { method: 'DELETE' }),
 
   // Projects
   getProjects: (params?: Record<string, any>) =>
@@ -360,6 +390,12 @@ export const api = {
 
   deleteService: (id: string) =>
     apiRequest(`/services/${id}`, { method: 'DELETE' }),
+
+  deleteServicesBulk: (ids: string[]) =>
+    apiRequest('/services/bulk-delete', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+
+  deleteAllServices: (params?: Record<string, any>) =>
+    apiRequest(`/services/delete-all${buildQueryString(params)}`, { method: 'DELETE' }),
 
   // Testimonials
   getTestimonials: () =>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, Search, Filter, RefreshCw, Trash2, Edit3, 
@@ -66,6 +66,12 @@ export default function MenuManagement() {
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Bulk selection state (persists across pagination)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteMode, setDeleteMode] = useState<'bulk' | 'all' | null>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   // Form State
   const [formData, setFormData] = useState<Partial<MenuItem>>({
@@ -110,6 +116,9 @@ export default function MenuManagement() {
         setItems(res.data.items || []);
         setTotalCount(res.data.total || 0);
         setTotalPages(res.data.totalPages || 1);
+        if ((res.data.items || []).length === 0 && page > 1) {
+          setPage(1);
+        }
       } else {
         setError(res.error || 'Failed to fetch menu items');
       }
@@ -207,6 +216,7 @@ export default function MenuManagement() {
 
   const handleDelete = async () => {
     if (!deletingId) return;
+    setIsDeleting(true);
     try {
       const res = await api.deleteMenuItem(deletingId);
       if (res.success) {
@@ -219,6 +229,108 @@ export default function MenuManagement() {
     } catch (err: any) {
       showToast('error', err.message || 'Deletion error');
     }
+    setIsDeleting(false);
+    setDeletingId(null);
+  };
+
+  // ---- Bulk selection helpers ----
+  const pageIds = items.map((it) => it._id || '').filter(Boolean);
+  const pageSelectedCount = pageIds.filter((id) => selectedIds.has(id)).length;
+  const allPageSelected = pageIds.length > 0 && pageSelectedCount === pageIds.length;
+  const somePageSelected = pageSelectedCount > 0 && !allPageSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = somePageSelected;
+    }
+  }, [somePageSelected]);
+
+  const toggleSelect = (id: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    if (!id) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAllToggle = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        pageIds.forEach((id) => next.delete(id));
+      } else {
+        pageIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteMode('bulk');
+  };
+
+  const handleDeleteAll = () => {
+    setDeleteMode('all');
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsDeleting(true);
+    const ids = Array.from(selectedIds);
+    try {
+      const res = await api.deleteMenuItemsBulk(ids);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? ids.length;
+        setItems((prev) => prev.filter((it) => !(it._id && selectedIds.has(it._id))));
+        setTotalCount((prev) => Math.max(0, prev - deletedCount));
+        clearSelection();
+        showToast('success', `${deletedCount} dish(es) deleted successfully`);
+        fetchMenuItems();
+      } else {
+        showToast('error', res.error || 'Failed to delete menu items');
+      }
+    } catch (err: any) {
+      console.error('Failed to bulk delete menu items:', err);
+      showToast('error', err.message || 'Failed to delete menu items');
+    }
+    setIsDeleting(false);
+    setDeleteMode(null);
+  };
+
+  const confirmDeleteAll = async () => {
+    setIsDeleting(true);
+    try {
+      const params: Record<string, any> = {
+        search: searchQuery || undefined,
+        category: activeCategory !== 'All' ? activeCategory : undefined,
+        cuisine: activeCuisine !== 'All' ? activeCuisine : undefined,
+        dietary: activeDietary !== 'All' ? activeDietary : undefined,
+        status: activeStatus !== 'All' ? activeStatus : undefined,
+      };
+      Object.keys(params).forEach((k) => {
+        if (params[k] === undefined) delete params[k];
+      });
+      const res = await api.deleteAllMenuItems(params);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? 0;
+        clearSelection();
+        showToast('success', `${deletedCount} dish(es) deleted successfully`);
+        fetchMenuItems();
+      } else {
+        showToast('error', res.error || 'Failed to delete menu items');
+      }
+    } catch (err: any) {
+      console.error('Failed to delete all menu items:', err);
+      showToast('error', err.message || 'Failed to delete menu items');
+    }
+    setIsDeleting(false);
+    setDeleteMode(null);
   };
 
   const handleToggleStatus = async (item: MenuItem) => {
@@ -390,6 +502,41 @@ export default function MenuManagement() {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border text-xs transition-colors ${
+        selectedIds.size > 0 ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 border-slate-200'
+      }`}>
+        <div className="flex items-center gap-2">
+          <Check className={`w-4 h-4 ${selectedIds.size > 0 ? 'text-rose-600' : 'text-slate-400'}`} />
+          <span className={`font-bold ${selectedIds.size > 0 ? 'text-rose-700' : 'text-slate-500'}`}>
+            {selectedIds.size > 0 ? `${selectedIds.size} dish(es) selected across pages` : 'Bulk Actions — tick rows to select them'}
+          </span>
+          {selectedIds.size > 0 && (
+            <button onClick={clearSelection} className="text-slate-500 hover:text-rose-700 underline font-semibold cursor-pointer">
+              Clear selection
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDeleteAll}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+            title="Deletes all dishes matching the current search & filter criteria"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete All</span>
+          </button>
+          <button
+            onClick={handleDeleteSelected}
+            disabled={selectedIds.size === 0}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete Selected ({selectedIds.size})</span>
+          </button>
+        </div>
+      </div>
+
       {/* Main Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
@@ -417,6 +564,16 @@ export default function MenuManagement() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 font-bold">
+                  <th className="py-3.5 pl-4 pr-1 w-10">
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      checked={allPageSelected}
+                      onChange={handleSelectAllToggle}
+                      className="w-4 h-4 accent-primary cursor-pointer"
+                      title="Select all dishes on this page"
+                    />
+                  </th>
                   <th className="py-3.5 px-4">Dish Details</th>
                   <th className="py-3.5 px-4">Category</th>
                   <th className="py-3.5 px-4">Cuisine</th>
@@ -432,6 +589,14 @@ export default function MenuManagement() {
                   const id = item._id || '';
                   return (
                     <tr key={id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3.5 pl-4 pr-1 align-top">
+                        <input
+                          type="checkbox"
+                          checked={id ? selectedIds.has(id) : false}
+                          onChange={(e) => toggleSelect(id, e)}
+                          className="w-4 h-4 accent-primary cursor-pointer mt-1"
+                        />
+                      </td>
                       <td className="py-3.5 px-4 max-w-xs">
                         <div className="flex items-center gap-3">
                           <img
@@ -700,6 +865,29 @@ export default function MenuManagement() {
         title="Delete Dish"
         itemName="this dish"
         message="Are you sure you want to remove this dish from the menu catalog?"
+        isLoading={isDeleting}
+      />
+
+      {/* Bulk Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === 'bulk'}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmBulkDelete}
+        title={`Delete ${selectedIds.size} Dish${selectedIds.size === 1 ? '' : 'es'}?`}
+        message={`Are you sure you want to permanently delete ${selectedIds.size} selected dish(es)? This action cannot be undone.`}
+        itemName={`${selectedIds.size} selected dish(es)`}
+        isLoading={isDeleting}
+      />
+
+      {/* Delete All Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === 'all'}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmDeleteAll}
+        title="Delete All Dishes?"
+        message="This will permanently delete all dishes matching the current search & filter criteria. This action cannot be undone."
+        itemName="all matching dishes"
+        isLoading={isDeleting}
       />
     </div>
   );

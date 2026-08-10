@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { api } from '../../lib/api';
 import { 
   Search, Eye, ShoppingBag, CheckCircle2, Clock, 
   XCircle, Filter, Trash2, ShieldCheck, RefreshCw 
 } from 'lucide-react';
 import { TableSkeleton } from '../../components/ui/Skeleton';
+import DeleteConfirmModal from '../../components/ui/DeleteConfirmModal';
 import SEO from '../../components/SEO';
 
 export default function Orders() {
@@ -13,6 +15,21 @@ export default function Orders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Bulk selection state (persists across list changes)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteMode, setDeleteMode] = useState<'bulk' | 'all' | null>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  // Toast
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -44,18 +61,85 @@ export default function Orders() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this catering order record?')) {
-      try {
-        await api.deleteOrder(id);
-        setOrders(prev => prev.filter(o => o._id !== id));
-        if (selectedOrder && selectedOrder._id === id) {
+  const handleDelete = (id: string) => {
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await api.deleteOrder(deleteTarget);
+      setOrders(prev => prev.filter(o => o._id !== deleteTarget));
+      if (selectedOrder && selectedOrder._id === deleteTarget) {
+        setSelectedOrder(null);
+      }
+      showToast('success', 'Order deleted successfully');
+    } catch (err) {
+      console.error('Failed to delete order', err);
+      showToast('error', 'Failed to delete order');
+    }
+    setIsDeleting(false);
+    setDeleteTarget(null);
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteMode('bulk');
+  };
+
+  const handleDeleteAll = () => {
+    setDeleteMode('all');
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsDeleting(true);
+    const ids = Array.from(selectedIds);
+    try {
+      const res = await api.deleteOrdersBulk(ids);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? ids.length;
+        setOrders(prev => prev.filter(o => !(o._id && selectedIds.has(o._id))));
+        if (selectedOrder && selectedIds.has(selectedOrder._id)) {
           setSelectedOrder(null);
         }
-      } catch (err) {
-        console.error('Failed to delete order', err);
+        clearSelection();
+        showToast('success', `${deletedCount} order(s) deleted successfully`);
+      } else {
+        showToast('error', res.error || 'Failed to delete orders');
       }
+    } catch (err) {
+      console.error('Failed to bulk delete orders:', err);
+      showToast('error', (err as any)?.message || 'Failed to delete orders');
     }
+    setIsDeleting(false);
+    setDeleteMode(null);
+  };
+
+  const confirmDeleteAll = async () => {
+    setIsDeleting(true);
+    try {
+      const params = {
+        search: searchQuery || undefined,
+        status: statusFilter === 'all' ? undefined : statusFilter
+      };
+      const res = await api.deleteAllOrders(params);
+      if (res.success && res.data) {
+        const deletedCount = res.data.deletedCount ?? 0;
+        clearSelection();
+        setSelectedOrder(null);
+        showToast('success', `${deletedCount} order(s) deleted successfully`);
+        fetchOrders();
+      } else {
+        showToast('error', res.error || 'Failed to delete orders');
+      }
+    } catch (err) {
+      console.error('Failed to delete all orders:', err);
+      showToast('error', (err as any)?.message || 'Failed to delete orders');
+    }
+    setIsDeleting(false);
+    setDeleteMode(null);
   };
 
   const filteredOrders = useMemo(() => {
@@ -70,9 +154,102 @@ export default function Orders() {
     });
   }, [orders, searchQuery, statusFilter]);
 
+  // ---- Bulk selection helpers ----
+  const visibleIds = filteredOrders.map(o => o._id || '').filter(Boolean);
+  const pageSelectedCount = visibleIds.filter(id => selectedIds.has(id)).length;
+  const allVisibleSelected = visibleIds.length > 0 && pageSelectedCount === visibleIds.length;
+  const someVisibleSelected = pageSelectedCount > 0 && !allVisibleSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected]);
+
+  const toggleSelect = (id: string, e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
+    if (!id) return;
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAllToggle = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleIds.forEach(id => next.delete(id));
+      } else {
+        visibleIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
   return (
     <div className="space-y-6">
       <SEO title="Catering Orders - Admin Panel" description="Track and manage active catering orders, delivery status, and order fulfillment." urlPath="/admin/orders" />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Order"
+        itemName="this order record"
+        isLoading={isDeleting}
+      />
+
+      {/* Bulk Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === 'bulk'}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmBulkDelete}
+        title={`Delete ${selectedIds.size} Order${selectedIds.size === 1 ? '' : 's'}?`}
+        message={`Are you sure you want to permanently delete ${selectedIds.size} selected order(s)? This action cannot be undone.`}
+        itemName={`${selectedIds.size} selected order(s)`}
+        isLoading={isDeleting}
+      />
+
+      {/* Delete All Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteMode === 'all'}
+        onClose={() => { if (!isDeleting) setDeleteMode(null); }}
+        onConfirm={confirmDeleteAll}
+        title="Delete All Orders?"
+        message="This will permanently delete all orders matching the current search & filter criteria. This action cannot be undone."
+        itemName="all matching orders"
+        isLoading={isDeleting}
+      />
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`fixed top-5 right-5 z-[60] px-4 py-3 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-2 ${
+              toast.type === 'success'
+                ? 'bg-emerald-900/90 text-white border-emerald-500'
+                : 'bg-rose-900/90 text-white border-rose-500'
+            }`}
+          >
+            {toast.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            ) : (
+              <XCircle className="w-5 h-5 text-rose-400" />
+            )}
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Page Title Header */}
       <div>
         <h3 className="font-serif text-xl sm:text-2xl font-bold text-secondary">
@@ -119,6 +296,41 @@ export default function Orders() {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border text-xs transition-colors ${
+        selectedIds.size > 0 ? 'bg-rose-50 border-rose-300' : 'bg-slate-50 border-slate-100'
+      }`}>
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className={`w-4 h-4 ${selectedIds.size > 0 ? 'text-rose-600' : 'text-slate-400'}`} />
+          <span className={`font-bold ${selectedIds.size > 0 ? 'text-rose-700' : 'text-slate-500'}`}>
+            {selectedIds.size > 0 ? `${selectedIds.size} order(s) selected` : 'Bulk Actions — tick rows to select them'}
+          </span>
+          {selectedIds.size > 0 && (
+            <button onClick={clearSelection} className="text-slate-500 hover:text-rose-700 underline font-semibold cursor-pointer">
+              Clear selection
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDeleteAll}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+            title="Deletes all orders matching the current search & filter criteria"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete All</span>
+          </button>
+          <button
+            onClick={handleDeleteSelected}
+            disabled={selectedIds.size === 0}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete Selected ({selectedIds.size})</span>
+          </button>
+        </div>
+      </div>
+
       {/* Main Panel Content */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
         {/* Orders Table Column */}
@@ -138,6 +350,16 @@ export default function Orders() {
               <table className="w-full text-left border-collapse font-sans text-xs sm:text-sm">
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-4 pl-4 pr-1 w-10">
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={handleSelectAllToggle}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                        title="Select all visible orders"
+                      />
+                    </th>
                     <th className="py-4 px-5">Invoice</th>
                     <th className="py-4 px-5">Customer</th>
                     <th className="py-4 px-5">Catering Details</th>
@@ -155,6 +377,15 @@ export default function Orders() {
                       }`}
                       onClick={() => setSelectedOrder(o)}
                     >
+                      <td className="py-4 pl-4 pr-1 align-top">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(o._id)}
+                          onChange={(e) => toggleSelect(o._id, e)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-4 h-4 accent-primary cursor-pointer mt-0.5"
+                        />
+                      </td>
                       <td className="py-4 px-5 font-bold font-mono text-slate-400">
                         {o.orderNumber || o._id}
                       </td>
