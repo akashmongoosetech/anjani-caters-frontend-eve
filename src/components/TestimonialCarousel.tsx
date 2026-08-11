@@ -138,9 +138,11 @@ export default function TestimonialCarousel({
             </div>
 
             {/* Quote/Feedback text */}
-            <p className="font-serif text-lg sm:text-2xl italic leading-relaxed text-white/90 max-w-2xl px-2 sm:px-8">
-              "{currentTestimonial.feedback}"
-            </p>
+            <blockquote className="w-full max-w-2xl px-2 sm:px-8">
+              <p className="font-serif text-lg sm:text-2xl italic leading-relaxed text-slate-700">
+                "{currentTestimonial.feedback || 'No feedback provided.'}"
+              </p>
+            </blockquote>
 
             {/* Author Profile section */}
             <div className="flex items-center gap-4 mt-2">
@@ -151,10 +153,10 @@ export default function TestimonialCarousel({
                 textClass="text-sm"
               />
               <div className="text-left">
-                <h4 className="font-serif text-base sm:text-lg font-bold text-white leading-snug">
+                <h4 className="font-serif text-base sm:text-lg font-bold text-secondary leading-snug">
                   {currentTestimonial.name}
                 </h4>
-                <span className="block text-xs text-white/60 font-sans font-medium">
+                <span className="block text-xs text-slate-500 font-sans font-medium">
                   {currentTestimonial.role} {currentTestimonial.company ? `• ${currentTestimonial.company}` : ''} ({currentTestimonial.eventType})
                 </span>
               </div>
@@ -168,7 +170,7 @@ export default function TestimonialCarousel({
         {/* Left Control Arrow */}
         <button
           onClick={handlePrev}
-          className="p-3 rounded-full bg-white/5 hover:bg-primary hover:text-secondary border border-white/10 text-white transition-all hover:scale-105 active:scale-95 focus:outline-none cursor-pointer"
+          className="p-3 rounded-full bg-white hover:bg-primary hover:text-white text-secondary border border-slate-200 shadow-sm transition-all hover:scale-105 active:scale-95 focus:outline-none cursor-pointer"
           aria-label="Previous Testimonial"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -183,7 +185,7 @@ export default function TestimonialCarousel({
               className={`h-2 rounded-full transition-all duration-300 focus:outline-none cursor-pointer ${
                 activeIndex === i 
                   ? 'bg-primary w-6 shadow-sm shadow-primary/20' 
-                  : 'bg-white/25 hover:bg-white/40 w-2'
+                  : 'bg-slate-300 hover:bg-slate-400 w-2'
               }`}
               aria-label={`Go to testimonial slide ${i + 1}`}
             />
@@ -193,7 +195,7 @@ export default function TestimonialCarousel({
         {/* Right Control Arrow */}
         <button
           onClick={handleNext}
-          className="p-3 rounded-full bg-white/5 hover:bg-primary hover:text-secondary border border-white/10 text-white transition-all hover:scale-105 active:scale-95 focus:outline-none cursor-pointer"
+          className="p-3 rounded-full bg-white hover:bg-primary hover:text-white text-secondary border border-slate-200 shadow-sm transition-all hover:scale-105 active:scale-95 focus:outline-none cursor-pointer"
           aria-label="Next Testimonial"
         >
           <ChevronRight className="w-4 h-4" />

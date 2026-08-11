@@ -792,13 +792,15 @@ export default function Testimonials() {
               >
                 Write Guest Review
               </a>
-              <button 
-                onClick={() => alert('Redirecting to Google Business profile listing. You can leave a review there!')}
+              <a 
+                href="https://g.page/r/CUQ-rW30-S8dEAI/review"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="px-6 py-3.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-center rounded-2xl shadow-sm transition-all text-xs sm:text-sm cursor-pointer flex items-center justify-center gap-2"
               >
                 <span>View Google Business Reviews</span>
                 <ArrowRight className="w-4 h-4" />
-              </button>
+              </a>
             </div>
 
           </div>
