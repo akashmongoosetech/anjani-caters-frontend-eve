@@ -10,6 +10,7 @@ import ScrollReveal from '../components/ScrollReveal';
 import { getServices, getMenuItems, getPackages, getTestimonials, getFAQs } from '../data/getAsyncData';
 import { useAsyncData } from '../hooks/useAsyncData';
 import TestimonialCarousel from '../components/TestimonialCarousel';
+import TestimonialSubmitModal from '../components/TestimonialSubmitModal';
 import LazyImage from '../components/ui/LazyImage';
 import { stripHtml } from '../components/ui/RichText';
 import { useLanguage } from '../context/LanguageContext';
@@ -45,6 +46,7 @@ export default function Home() {
   const { language, t } = useLanguage();
   const [activeMenuCategory, setActiveMenuCategory] = useState<'Appetizers' | 'Main Courses' | 'Desserts' | 'Beverages'>('Appetizers');
   const [activeFAQ, setActiveFAQ] = useState<string | null>(null);
+  const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
 
   const { data: services } = useAsyncData(() => getServices(language), [] as any[], [language]);
   const { data: menuItems } = useAsyncData(() => getMenuItems(language), [] as any[], [language]);
@@ -416,7 +418,7 @@ export default function Home() {
       </section>
 
       {/* 6. OUR PACKAGES PREVIEW SECTION */}
-      <section className="py-20 sm:py-28 bg-linen border-y border-accent/10 relative">
+      {/* <section className="py-20 sm:py-28 bg-linen border-y border-accent/10 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <ScrollReveal direction="up" duration={0.7} className="text-center max-w-2xl mx-auto mb-16 flex flex-col gap-4">
@@ -481,7 +483,7 @@ export default function Home() {
           </ScrollReveal>
 
         </div>
-      </section>
+      </section> */}
 
       {/* 7. TESTIMONIALS CAROUSEL SECTION */}
       <section className="py-20 sm:py-28 bg-cream">
@@ -495,9 +497,25 @@ export default function Home() {
             </h2>
           </ScrollReveal>
 
+          <div className="mb-10 flex justify-center">
+            <button
+              onClick={() => setIsTestimonialModalOpen(true)}
+              className="group inline-flex items-center gap-2 px-6 py-3.5 bg-secondary hover:bg-slate-800 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md transition-all cursor-pointer"
+            >
+              <Star className="w-4 h-4 text-primary" />
+              {t('shareYourExperience')}
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </button>
+          </div>
+
           <TestimonialCarousel testimonials={testimonials} />
         </div>
       </section>
+
+      <TestimonialSubmitModal
+        isOpen={isTestimonialModalOpen}
+        onClose={() => setIsTestimonialModalOpen(false)}
+      />
 
       {/* 8. FAQ SECTION */}
       <section className="py-20 bg-linen border-t border-accent/10">

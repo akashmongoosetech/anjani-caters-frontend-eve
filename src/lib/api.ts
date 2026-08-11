@@ -254,6 +254,28 @@ export const api = {
     });
   },
 
+  // Public File Upload — multipart/form-data (no auth, image-only, rate limited)
+  uploadPublicFile: (file: File, fieldName: string = 'file'): Promise<{ success: boolean; data?: { url: string; filename: string; size: number; mimetype: string }; error?: string }> => {
+    return new Promise(async (resolve) => {
+      try {
+        const formData = new FormData();
+        formData.append(fieldName, file);
+        const res = await fetch(`${BASE_URL}/upload/public`, {
+          method: 'POST',
+          body: formData,
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          resolve({ success: false, error: json.message || json.error || 'Upload failed' });
+          return;
+        }
+        resolve({ success: true, data: json.data || json });
+      } catch (err: any) {
+        resolve({ success: false, error: err.message || 'Upload error' });
+      }
+    });
+  },
+
   // Chat
   sendChatMessage: (message: string, sessionId?: string) =>
     apiRequest('/chat/query', { method: 'POST', body: JSON.stringify({ message, sessionId }) }),
@@ -452,8 +474,21 @@ export const api = {
   getTestimonials: () =>
     apiRequest('/testimonials'),
 
-  submitTestimonial: (payload: { name: string; email: string; city: string; eventType: string; rating: number; comment: string }) =>
+  submitTestimonial: (payload: { name: string; email: string; city: string; eventType: string; rating: number; comment: string; avatar?: string }) =>
     apiRequest('/testimonials/submit', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Testimonials — Admin
+  getAllTestimonials: (params?: Record<string, any>) =>
+    apiRequest(`/testimonials/all${buildQueryString(params)}`),
+
+  getTestimonialById: (id: string) =>
+    apiRequest(`/testimonials/${id}`),
+
+  updateTestimonialStatus: (id: string, status: string) =>
+    apiRequest(`/testimonials/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+
+  deleteTestimonial: (id: string) =>
+    apiRequest(`/testimonials/${id}`, { method: 'DELETE' }),
 
   // FAQs
   getFAQs: () =>

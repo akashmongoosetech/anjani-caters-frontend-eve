@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { 
   LayoutDashboard, Users, Mail, Calendar, ShoppingBag, 
   FileText, MessageSquare, UtensilsCrossed, Package, Send, Image as ImageIcon, Settings, 
-  ChevronLeft, ChevronRight, X, Sparkles, ShieldCheck, Bell, Briefcase, FolderOpen, Layers
+  ChevronLeft, ChevronRight, X, Sparkles, ShieldCheck, Bell, Briefcase, FolderOpen, Layers, Star
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -52,6 +52,7 @@ export default function AdminSidebar({
     { key: 'admin:packages', name: t('admin:packages'), path: '/admin/packages', icon: Package, roles: ['Super Admin', 'Admin', 'Manager'] },
     { key: 'admin:newsletter', name: t('admin:newsletter'), path: '/admin/newsletter', icon: Send, roles: ['Super Admin', 'Admin'] },
     { key: 'admin:gallery', name: t('admin:gallery'), path: '/admin/gallery', icon: ImageIcon, roles: ['Super Admin', 'Admin'] },
+    { key: 'admin:testimonials', name: t('admin:testimonials'), path: '/admin/testimonials', icon: Star, roles: ['Super Admin', 'Admin', 'Manager'] },
     { key: 'admin:settings', name: t('admin:settings'), path: '/admin/settings', icon: Settings, roles: ['Super Admin', 'Admin'] },
     { key: 'chatbot:headerTitle', name: t('chatbot:headerTitle'), path: '/admin/ai-bookings', icon: Sparkles, roles: ['Super Admin', 'Admin', 'Manager'] },
   ];

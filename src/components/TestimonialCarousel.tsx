@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, Variants } from 'motion/react';
 import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
+import TestimonialAvatar from './ui/TestimonialAvatar';
 
 interface Testimonial {
   id: string | number;
@@ -143,14 +144,12 @@ export default function TestimonialCarousel({
 
             {/* Author Profile section */}
             <div className="flex items-center gap-4 mt-2">
-              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-primary shrink-0 bg-slate-800 shadow-md">
-                <img
-                  src={currentTestimonial.image}
-                  alt={currentTestimonial.name}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <TestimonialAvatar
+                name={currentTestimonial.name}
+                image={currentTestimonial.image}
+                className="w-14 h-14 rounded-full border-2 border-primary"
+                textClass="text-sm"
+              />
               <div className="text-left">
                 <h4 className="font-serif text-base sm:text-lg font-bold text-white leading-snug">
                   {currentTestimonial.name}

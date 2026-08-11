@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Star, MessageSquare, Quote, Heart, ChevronLeft, ChevronRight, Play, 
   CheckCircle2, Award, Calendar, MapPin, Sparkles, Clock, ArrowRight, 
-  X, Maximize2, ChevronDown, ChevronUp, Utensils, ThumbsUp, Send, UserCheck, ShieldCheck, AlertCircle, Loader2
+  X, Maximize2, ChevronDown, ChevronUp, Utensils, ThumbsUp, Send, UserCheck, ShieldCheck, AlertCircle, Loader2, User, Upload
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import PageBanner from '../components/layout/PageBanner';
@@ -16,6 +16,7 @@ import {
   VideoTestimonial 
 } from '../data/testimonialsData';
 import { getTestimonialsData } from '../data/getAsyncData';
+import TestimonialAvatar from '../components/ui/TestimonialAvatar';
 import { api } from '../lib/api';
 import { useLanguage } from '../context/LanguageContext';
 import { useAsyncData } from '../hooks/useAsyncData';
@@ -206,14 +207,20 @@ export default function Testimonials() {
   // Carousel State (Main Featured)
   const [carouselIndex, setCarouselIndex] = useState(0);
   const featuredTestimonials = testimonialsData.slice(0, 3); // top 3 as main carousel attraction
+  const slideCount = Math.max(1, featuredTestimonials.length);
   const [touchStart, setTouchStart] = useState<number | null>(null);
 
   // Auto-play for carousel
   useEffect(() => {
     const timer = setInterval(() => {
-      setCarouselIndex((prev) => (prev + 1) % featuredTestimonials.length);
+      setCarouselIndex((prev) => (prev + 1) % slideCount);
     }, 8000);
     return () => clearInterval(timer);
+  }, [featuredTestimonials.length]);
+
+  // Keep carousel index within bounds when the list shrinks (e.g. language change / refetch)
+  useEffect(() => {
+    setCarouselIndex((i) => Math.min(i, Math.max(0, featuredTestimonials.length - 1)));
   }, [featuredTestimonials.length]);
 
   // Touch Swipe Handlers for carousel
@@ -227,11 +234,11 @@ export default function Testimonials() {
 
     if (diff > 50) {
       // Swiped left
-      setCarouselIndex((prev) => (prev + 1) % featuredTestimonials.length);
+      setCarouselIndex((prev) => (prev + 1) % slideCount);
       setTouchStart(null);
     } else if (diff < -50) {
       // Swiped right
-      setCarouselIndex((prev) => (prev - 1 + featuredTestimonials.length) % featuredTestimonials.length);
+      setCarouselIndex((prev) => (prev - 1 + featuredTestimonials.length) % slideCount);
       setTouchStart(null);
     }
   };
@@ -240,9 +247,9 @@ export default function Testimonials() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
-        setCarouselIndex((prev) => (prev - 1 + featuredTestimonials.length) % featuredTestimonials.length);
+        setCarouselIndex((prev) => (prev - 1 + featuredTestimonials.length) % slideCount);
       } else if (e.key === 'ArrowRight') {
-        setCarouselIndex((prev) => (prev + 1) % featuredTestimonials.length);
+        setCarouselIndex((prev) => (prev + 1) % slideCount);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -289,14 +296,48 @@ export default function Testimonials() {
   const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState(false);
   const [reviewSubmitError, setReviewSubmitError] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [writeReviewPhoto, setWriteReviewPhoto] = useState<File | null>(null);
+  const [writeReviewAvatarPreview, setWriteReviewAvatarPreview] = useState('');
+  const [photoUploadError, setPhotoUploadError] = useState('');
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoUploadError('Profile photo must be under 2MB.');
+      return;
+    }
+    setPhotoUploadError('');
+    setWriteReviewPhoto(file);
+    const reader = new FileReader();
+    reader.onload = () => setWriteReviewAvatarPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const removeReviewPhoto = () => {
+    setWriteReviewPhoto(null);
+    setWriteReviewAvatarPreview('');
+  };
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!writeReviewName || !writeReviewFeedback) return;
     setIsSubmittingReview(true);
     setReviewSubmitError('');
+    setPhotoUploadError('');
     
     try {
+      let avatarUrl = '';
+      if (writeReviewPhoto) {
+        const uploadRes = await api.uploadPublicFile(writeReviewPhoto);
+        if (!uploadRes.success || !uploadRes.data?.url) {
+          setPhotoUploadError(uploadRes.error || 'Photo upload failed. Please try again.');
+          setIsSubmittingReview(false);
+          return;
+        }
+        avatarUrl = uploadRes.data.url;
+      }
       const res = await api.submitTestimonial({
         name: writeReviewName.trim(),
         email: writeReviewEmail.trim(),
@@ -304,6 +345,7 @@ export default function Testimonials() {
         eventType: writeReviewType,
         rating: writeReviewRating,
         comment: writeReviewFeedback.trim(),
+        avatar: avatarUrl,
       });
       if (!res.success) {
         throw new Error(res.error || 'Submission failed');
@@ -317,6 +359,7 @@ export default function Testimonials() {
       setWriteReviewFeedback('');
       setWriteReviewRating(5);
       setWriteReviewType('Weddings');
+      removeReviewPhoto();
 
       // Clear banner after 10s
       setTimeout(() => setReviewSubmitSuccess(false), 10000);
@@ -404,6 +447,7 @@ export default function Testimonials() {
       </section>
 
       {/* --- Section 2: Luxury Featured Testimonial Carousel --- */}
+      {featuredTestimonials.length > 0 && (
       <section className="py-16 sm:py-24 bg-linen border-y border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
@@ -443,22 +487,26 @@ export default function Testimonials() {
                   {/* Image Column */}
                   <div className="lg:col-span-5 relative group">
                     <div className="relative aspect-square sm:aspect-[4/3] lg:aspect-square w-full rounded-2xl overflow-hidden border-4 border-linen shadow-md">
-                      <img 
-                        src={featuredTestimonials[carouselIndex].eventImage} 
-                        alt={featuredTestimonials[carouselIndex].name}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                      />
+                      {featuredTestimonials[carouselIndex].eventImage ? (
+                        <img 
+                          src={featuredTestimonials[carouselIndex].eventImage} 
+                          alt={featuredTestimonials[carouselIndex].name}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-primary/15 via-linen to-secondary/5 flex items-center justify-center">
+                          <Quote className="w-16 h-16 text-primary/25 fill-current rotate-180" />
+                        </div>
+                      )}
                     </div>
                     {/* Portrait Avatar overlay */}
-                    <div className="absolute -bottom-5 -right-5 w-20 h-20 rounded-full border-4 border-white shadow-xl overflow-hidden shrink-0 bg-cream">
-                      <img 
-                        src={featuredTestimonials[carouselIndex].avatar} 
-                        alt={featuredTestimonials[carouselIndex].name}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                    <TestimonialAvatar
+                      name={featuredTestimonials[carouselIndex].name}
+                      image={featuredTestimonials[carouselIndex].avatar}
+                      className="absolute -bottom-5 -right-5 w-20 h-20 rounded-full border-4 border-white shadow-xl bg-cream"
+                      textClass="text-xl"
+                    />
                     <div className="absolute top-4 left-4 bg-secondary/95 backdrop-blur-md text-white text-[10px] sm:text-xs font-bold px-3 py-1 rounded-full shadow-lg border border-white/10 uppercase tracking-widest">
                       {featuredTestimonials[carouselIndex].category}
                     </div>
@@ -528,14 +576,14 @@ export default function Testimonials() {
               {/* Arrow Keys */}
               <div className="flex gap-2.5">
                 <button
-                  onClick={() => setCarouselIndex((prev) => (prev - 1 + featuredTestimonials.length) % featuredTestimonials.length)}
+                  onClick={() => setCarouselIndex((prev) => (prev - 1 + featuredTestimonials.length) % slideCount)}
                   className="p-2.5 rounded-full border border-slate-200 text-slate-400 hover:text-primary hover:border-primary hover:bg-primary/5 transition-all cursor-pointer active:scale-95"
                   aria-label="Previous testimonial"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => setCarouselIndex((prev) => (prev + 1) % featuredTestimonials.length)}
+                  onClick={() => setCarouselIndex((prev) => (prev + 1) % slideCount)}
                   className="p-2.5 rounded-full border border-slate-200 text-slate-400 hover:text-primary hover:border-primary hover:bg-primary/5 transition-all cursor-pointer active:scale-95"
                   aria-label="Next testimonial"
                 >
@@ -548,6 +596,7 @@ export default function Testimonials() {
 
         </div>
       </section>
+      )}
 
       {/* --- Section 3: Interactive Filterable Masonry Testimonials Grid --- */}
       <section className="py-20 bg-cream">
@@ -1070,6 +1119,42 @@ export default function Testimonials() {
                 </div>
               </div>
 
+              {/* Profile Photo (optional) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500">Profile Photo <span className="font-sans text-slate-400">(optional)</span></label>
+                <div className="flex items-center gap-3">
+                  {writeReviewAvatarPreview ? (
+                    <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 shrink-0 bg-slate-100">
+                      <img src={writeReviewAvatarPreview} alt="Profile preview" className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-full border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
+                      <User className="w-6 h-6" />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-2">
+                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">
+                      <Upload className="w-4 h-4" />
+                      {writeReviewAvatarPreview ? 'Change Photo' : 'Upload Photo'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoSelect}
+                      />
+                    </label>
+                    {writeReviewAvatarPreview && (
+                      <button type="button" onClick={removeReviewPhoto} className="text-[11px] font-bold text-rose-500 hover:text-rose-700 text-left cursor-pointer">
+                        Remove photo
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {photoUploadError && (
+                  <p className="text-[11px] font-bold text-rose-500">{photoUploadError}</p>
+                )}
+              </div>
+
               {/* Feedback text */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500">Your Gourmet Experience</label>
@@ -1225,14 +1310,12 @@ function MasonryCard({ test, isExpanded, onToggle }: MasonryCardProps) {
 
       {/* Guest Line */}
       <div className="flex items-center gap-3 border-t border-slate-50 pt-4 mt-2">
-        <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 border-primary/20 bg-slate-50">
-          <img 
-            src={test.avatar} 
-            alt={test.name}
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover"
-          />
-        </div>
+        <TestimonialAvatar
+          name={test.name}
+          image={test.avatar}
+          className="w-10 h-10 rounded-full border-2 border-primary/20 bg-slate-50"
+          textClass="text-xs"
+        />
         <div>
           <div className="flex items-center gap-1.5">
             <h4 className="font-serif text-sm font-bold text-secondary leading-snug">

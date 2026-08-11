@@ -92,9 +92,19 @@ export default function AvailabilityCalendar() {
     try {
       const res = await getAvailableSlotsForDate(dateStr);
       if (res && res.data && res.data.slots) {
-        setDaySlots(res.data.slots);
+        const normalizedSlots: TimeSlot[] = res.data.slots.map((s: any, i: number) => {
+          const isBooked = Boolean(s.isBooked ?? !s.available);
+          return {
+            id: String(s.id ?? s.time ?? i),
+            time: s.time,
+            label: s.label,
+            isBooked,
+            status: (isBooked ? 'booked' : 'available') as TimeSlot['status'],
+          };
+        });
+        setDaySlots(normalizedSlots);
         // Default select first available slot
-        const firstAvail = res.data.slots.find(s => !s.isBooked);
+        const firstAvail = normalizedSlots.find(s => !s.isBooked);
         if (firstAvail) {
           setSelectedSlot(firstAvail.time);
         }

@@ -20,6 +20,7 @@ import SubCategoryManagement from './admin/SubCategoryManagement';
 import Packages from './admin/Packages';
 import Newsletter from './admin/Newsletter';
 import Gallery from './admin/Gallery';
+import Testimonials from './admin/Testimonials';
 import Settings from './admin/Settings';
 import AIChatbotInquiries from './admin/AIChatbotInquiries';
 import Notifications from './admin/Notifications';
@@ -84,6 +85,7 @@ export default function Admin() {
             <Route path="comments" element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin']}><Comments /></ProtectedRoute>} />
             <Route path="newsletter" element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin']}><Newsletter /></ProtectedRoute>} />
             <Route path="gallery" element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin']}><Gallery /></ProtectedRoute>} />
+            <Route path="testimonials" element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin', 'Manager']}><Testimonials /></ProtectedRoute>} />
             <Route path="settings" element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin']}><Settings /></ProtectedRoute>} />
 
             {/* Super Admin Restricted Security Module */}

@@ -25,6 +25,7 @@ export default function AdminLayout() {
     if (path.includes('/contacts')) return 'Client Inquiries';
     if (path.includes('/users')) return 'User & Partner Directory';
     if (path.includes('/settings')) return 'Console Settings';
+    if (path.includes('/testimonials')) return 'Testimonial Moderation';
     return 'Admin Control Panel';
   };
 
