@@ -282,10 +282,6 @@ export default function ServicesManagement() {
 
   const handleSaveFaq = async () => {
     const serviceId = editingItem?._id || editingItem?.id;
-    if (!serviceId) {
-      showToast("error", "Cannot save FAQ: service not loaded.");
-      return;
-    }
     if (!faqForm.question.trim()) {
       showToast("error", "FAQ question is required.");
       return;
@@ -301,6 +297,29 @@ export default function ServicesManagement() {
       displayOrder: Number(faqForm.displayOrder) || 0,
       status: faqForm.status,
     };
+
+    // Draft mode (creating a new service): store locally until the service is saved
+    if (!serviceId) {
+      if (editingFaqId) {
+        setServiceFAQs((prev) =>
+          prev.map((f) =>
+            f._id === editingFaqId || f.id === editingFaqId ? { ...f, ...payload } : f
+          )
+        );
+        showToast("success", "FAQ updated successfully");
+      } else {
+        const draftId = `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        setServiceFAQs((prev) => [
+          ...prev,
+          { _id: draftId, id: draftId, serviceId: "", ...payload },
+        ]);
+        showToast("success", "FAQ added successfully");
+      }
+      setFaqFormOpen(false);
+      resetFaqForm();
+      return;
+    }
+
     try {
       const res = editingFaqId
         ? await api.updateServiceFAQ(editingFaqId, payload)
@@ -321,12 +340,18 @@ export default function ServicesManagement() {
 
   const handleDeleteFaq = async () => {
     if (!faqDeletingId) return;
+    const serviceId = editingItem?._id || editingItem?.id;
+    if (!serviceId) {
+      setServiceFAQs((prev) => prev.filter((f) => f._id !== faqDeletingId && f.id !== faqDeletingId));
+      setFaqDeletingId(null);
+      showToast("success", "FAQ removed");
+      return;
+    }
     setFaqIsDeleting(true);
     try {
       const res = await api.deleteServiceFAQ(faqDeletingId);
       if (res.success) {
         showToast("success", "FAQ deleted successfully");
-        const serviceId = editingItem?._id || editingItem?.id;
         if (serviceId) await loadServiceFAQs(serviceId);
         fetchServices();
       } else {
@@ -343,11 +368,17 @@ export default function ServicesManagement() {
     const id = faq._id || faq.id;
     if (!id) return;
     const newStatus = faq.status === "Active" ? "Inactive" : "Active";
+    const serviceId = editingItem?._id || editingItem?.id;
+    if (!serviceId) {
+      setServiceFAQs((prev) =>
+        prev.map((f) => (f._id === id || f.id === id ? { ...f, status: newStatus } : f))
+      );
+      return;
+    }
     try {
       const res = await api.updateServiceFAQStatus(id, newStatus);
       if (res.success) {
         showToast("success", newStatus === "Active" ? "FAQ activated" : "FAQ deactivated");
-        const serviceId = editingItem?._id || editingItem?.id;
         if (serviceId) await loadServiceFAQs(serviceId);
         fetchServices();
       } else {
@@ -495,9 +526,43 @@ export default function ServicesManagement() {
       }
 
       if (res.success) {
-        showToast("success", id ? "Service updated successfully" : "Service created successfully");
-        setIsFormOpen(false);
-        fetchServices();
+        if (id) {
+          showToast("success", "Service updated successfully");
+          setIsFormOpen(false);
+          fetchServices();
+        } else {
+          const newId = res.data?._id || res.data?.id || "";
+          const pendingFaqs = serviceFAQs.filter(
+            (f) => (f.question || "").trim() && (f.answer || "").replace(/<[^>]*>/g, "").trim()
+          );
+          let faqFailures = 0;
+          if (newId && pendingFaqs.length > 0) {
+            for (const f of pendingFaqs) {
+              try {
+                const faqRes = await api.createServiceFAQ(newId, {
+                  question: f.question.trim(),
+                  answer: f.answer,
+                  displayOrder: Number(f.displayOrder) || 0,
+                  status: f.status,
+                });
+                if (!faqRes.success) faqFailures++;
+              } catch {
+                faqFailures++;
+              }
+            }
+          }
+          setServiceFAQs([]);
+          setIsFormOpen(false);
+          if (pendingFaqs.length > 0 && faqFailures > 0) {
+            showToast("success", `Service created, but ${faqFailures} of ${pendingFaqs.length} FAQ(s) failed to save.`);
+          } else {
+            showToast(
+              "success",
+              pendingFaqs.length > 0 ? `Service created successfully with ${pendingFaqs.length} FAQ(s)` : "Service created successfully"
+            );
+          }
+          fetchServices();
+        }
       } else {
         showToast("error", res.error || "Operation failed");
       }
@@ -1164,9 +1229,8 @@ export default function ServicesManagement() {
                   />
                 </div>
 
-                {editingItem && (
-                  <div className="sm:col-span-2 mt-4 border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="px-4 py-3 bg-slate-50 flex items-center justify-between border-b border-slate-200">
+                <div className="sm:col-span-2 mt-4 border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 bg-slate-50 flex items-center justify-between border-b border-slate-200">
                       <span className="font-bold text-slate-700 text-xs flex items-center gap-2">
                         <HelpCircle className="w-3.5 h-3.5 text-primary" />
                         FAQs
@@ -1198,7 +1262,7 @@ export default function ServicesManagement() {
                           </span>
                           <button
                             type="button"
-                            onClick={() => loadServiceFAQs(editingItem._id || editingItem.id || "")}
+                            onClick={() => { if (editingItem) loadServiceFAQs(editingItem._id || editingItem.id || ""); }}
                             className="px-3 py-1 rounded-lg bg-rose-100 text-rose-700 font-bold cursor-pointer"
                           >
                             Retry
@@ -1347,7 +1411,6 @@ export default function ServicesManagement() {
                       )}
                     </div>
                   </div>
-                )}
 
                 <div className="sm:col-span-2 mt-4 border border-slate-200 rounded-xl overflow-hidden">
                   <button
