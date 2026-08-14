@@ -54,13 +54,13 @@ export default function WhatsAppContact() {
   const whatsappUrl = `https://wa.me/${cateringPhone}?text=${encodeURIComponent(finalMessage)}`;
 
   return (
-    <div id="whatsapp-floating-widget" className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4 pointer-events-none">
+    <div id="whatsapp-floating-widget" className="fixed bottom-24 right-6 z-50 flex flex-col items-end gap-4 pointer-events-none">
       
       {/* Interactive Chat Popup Window */}
       {isOpen && (
         <div 
           id="whatsapp-chat-popup"
-          className="w-[340px] sm:w-[380px] bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-bottom-5"
+          className="w-[340px] sm:w-[380px] max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden pointer-events-auto transition-all duration-300 animate-in fade-in slide-in-from-bottom-5"
         >
           {/* Header */}
           <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-4 flex items-center justify-between">

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import SEO from '../../components/SEO';
+import LoadingButton from '../../components/ui/LoadingButton';
 
 interface Subscriber {
   _id?: string;
@@ -37,6 +38,8 @@ export default function NewsletterManagement() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isBulkDeleting, setIsBulkDeleting] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // Toast
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -114,7 +117,8 @@ export default function NewsletterManagement() {
   };
 
   const handleDeleteOne = async () => {
-    if (!deletingId) return;
+    if (!deletingId || isDeleting) return;
+    setIsDeleting(true);
     try {
       const res = await api.deleteSubscriber(deletingId);
       if (res.success) {
@@ -127,11 +131,13 @@ export default function NewsletterManagement() {
       }
     } catch (err: any) {
       showToast('error', 'Error deleting subscriber');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
+    if (selectedIds.length === 0 || isBulkDeleting) return;
     try {
       const res = await api.bulkDeleteSubscribers(selectedIds);
       if (res.success) {
@@ -144,6 +150,8 @@ export default function NewsletterManagement() {
       }
     } catch (err: any) {
       showToast('error', 'Bulk deletion failed');
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -159,7 +167,8 @@ export default function NewsletterManagement() {
 
   const handleToggleStatus = async (subscriber: Subscriber) => {
     const id = subscriber._id || subscriber.id;
-    if (!id) return;
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     const newStatus = subscriber.status === 'Active' ? 'Inactive' : 'Active';
     try {
       const res = await api.updateSubscriberStatus(id, newStatus);
@@ -169,6 +178,8 @@ export default function NewsletterManagement() {
       }
     } catch (err) {
       showToast('error', 'Failed to update subscriber status');
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -233,7 +244,7 @@ export default function NewsletterManagement() {
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
           
-          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-[280px]">
+          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-0">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -360,8 +371,10 @@ export default function NewsletterManagement() {
                         {new Date(sub.subscribedAt || Date.now()).toLocaleDateString()}
                       </td>
                       <td className="py-3.5 px-4">
-                        <button
+                        <LoadingButton
                           onClick={() => handleToggleStatus(sub)}
+                          loading={actionLoadingId === id}
+                          loadingText=""
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
                             sub.status === 'Active'
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
@@ -369,7 +382,7 @@ export default function NewsletterManagement() {
                           }`}
                         >
                           {sub.status}
-                        </button>
+                        </LoadingButton>
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <button
@@ -432,12 +445,14 @@ export default function NewsletterManagement() {
               >
                 Cancel
               </button>
-              <button
+              <LoadingButton
                 onClick={handleDeleteOne}
+                loading={isDeleting}
+                loadingText="Deleting..."
                 className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 cursor-pointer shadow-sm"
               >
                 Delete
-              </button>
+              </LoadingButton>
             </div>
           </div>
         </div>
@@ -463,12 +478,14 @@ export default function NewsletterManagement() {
               >
                 Cancel
               </button>
-              <button
+              <LoadingButton
                 onClick={handleBulkDelete}
+                loading={isBulkDeleting}
+                loadingText={`Deleting ${selectedIds.length} items...`}
                 className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 cursor-pointer shadow-sm"
               >
                 Delete All Selected
-              </button>
+              </LoadingButton>
             </div>
           </div>
         </div>

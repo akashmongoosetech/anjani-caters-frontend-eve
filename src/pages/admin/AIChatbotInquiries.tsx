@@ -6,6 +6,7 @@ import {
   Eye, Calendar, Check, AlertCircle, Sparkles, Filter, MessageSquare, Bot, User, Clipboard, FileText, RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import LoadingButton from "../../components/ui/LoadingButton";
 import SEO from "../../components/SEO";
 
 interface AIChatbotInquiry {
@@ -59,6 +60,10 @@ export default function AIChatbotInquiries() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedInquiry, setSelectedInquiry] = useState<AIChatbotInquiry | null>(null);
   const [selectedSession, setSelectedSession] = useState<ChatSessionLog | null>(null);
+
+  // Action loading
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Fetch all bookings and logged sessions
   const fetchData = async () => {
@@ -136,32 +141,38 @@ export default function AIChatbotInquiries() {
 
   // Update Status
   const handleStatusChange = async (id: string, newStatus: AIChatbotInquiry["status"]) => {
-    // 1. Try sending status modification to backend
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     try {
-      await api.updateChatbotBookingStatus(id, newStatus);
-    } catch (err) {
-      console.warn("Could not sync status with remote server, modifying local-only.", err);
-    }
-
-    // 2. Always update local visual state
-    setInquiries(prev => 
-      prev.map(inq => inq.id === id ? { ...inq, status: newStatus } : inq)
-    );
-
-    if (selectedInquiry?.id === id) {
-      setSelectedInquiry(prev => prev ? { ...prev, status: newStatus } : null);
-    }
-
-    // 3. Update the local storage array
-    try {
-      const localBookingsStr = localStorage.getItem("eveng_local_bookings");
-      if (localBookingsStr) {
-        const localBookings: AIChatbotInquiry[] = JSON.parse(localBookingsStr);
-        const updated = localBookings.map(b => b.id === id ? { ...b, status: newStatus } : b);
-        localStorage.setItem("eveng_local_bookings", JSON.stringify(updated));
+      // 1. Try sending status modification to backend
+      try {
+        await api.updateChatbotBookingStatus(id, newStatus);
+      } catch (err) {
+        console.warn("Could not sync status with remote server, modifying local-only.", err);
       }
-    } catch (e) {
-      console.error("Failed to update local status storage:", e);
+
+      // 2. Always update local visual state
+      setInquiries(prev => 
+        prev.map(inq => inq.id === id ? { ...inq, status: newStatus } : inq)
+      );
+
+      if (selectedInquiry?.id === id) {
+        setSelectedInquiry(prev => prev ? { ...prev, status: newStatus } : null);
+      }
+
+      // 3. Update the local storage array
+      try {
+        const localBookingsStr = localStorage.getItem("eveng_local_bookings");
+        if (localBookingsStr) {
+          const localBookings: AIChatbotInquiry[] = JSON.parse(localBookingsStr);
+          const updated = localBookings.map(b => b.id === id ? { ...b, status: newStatus } : b);
+          localStorage.setItem("eveng_local_bookings", JSON.stringify(updated));
+        }
+      } catch (e) {
+        console.error("Failed to update local status storage:", e);
+      }
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -170,30 +181,35 @@ export default function AIChatbotInquiries() {
     if (!window.confirm("Are you sure you want to permanently delete this chatbot reservation inquiry? This action is irreversible.")) {
       return;
     }
-
-    // 1. Try sending delete command to backend
+    if (deletingId) return;
+    setDeletingId(id);
     try {
-      await api.deleteChatbotBooking(id);
-    } catch (err) {
-      console.warn("Could not sync deletion with remote server, discarding local-only.", err);
-    }
-
-    // 2. Always update local visual state
-    setInquiries(prev => prev.filter(inq => inq.id !== id));
-    if (selectedInquiry?.id === id) {
-      setSelectedInquiry(null);
-    }
-
-    // 3. Update local storage list
-    try {
-      const localBookingsStr = localStorage.getItem("eveng_local_bookings");
-      if (localBookingsStr) {
-        const localBookings: AIChatbotInquiry[] = JSON.parse(localBookingsStr);
-        const filtered = localBookings.filter(b => b.id !== id);
-        localStorage.setItem("eveng_local_bookings", JSON.stringify(filtered));
+      // 1. Try sending delete command to backend
+      try {
+        await api.deleteChatbotBooking(id);
+      } catch (err) {
+        console.warn("Could not sync deletion with remote server, discarding local-only.", err);
       }
-    } catch (e) {
-      console.error("Failed to delete local inquiry from storage:", e);
+
+      // 2. Always update local visual state
+      setInquiries(prev => prev.filter(inq => inq.id !== id));
+      if (selectedInquiry?.id === id) {
+        setSelectedInquiry(null);
+      }
+
+      // 3. Update local storage list
+      try {
+        const localBookingsStr = localStorage.getItem("eveng_local_bookings");
+        if (localBookingsStr) {
+          const localBookings: AIChatbotInquiry[] = JSON.parse(localBookingsStr);
+          const filtered = localBookings.filter(b => b.id !== id);
+          localStorage.setItem("eveng_local_bookings", JSON.stringify(filtered));
+        }
+      } catch (e) {
+        console.error("Failed to delete local inquiry from storage:", e);
+      }
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -394,13 +410,15 @@ export default function AIChatbotInquiries() {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button 
+                            <LoadingButton 
                               onClick={() => handleDeleteInquiry(inq.id)}
+                              loading={deletingId === inq.id}
+                              loadingText=""
                               className="p-2 border border-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-colors cursor-pointer"
                               title="Discard Lead"
                             >
                               <Trash2 className="w-4 h-4" />
-                            </button>
+                            </LoadingButton>
                           </div>
                         </td>
                       </tr>
@@ -495,8 +513,10 @@ export default function AIChatbotInquiries() {
                 <div className="space-y-3">
                   <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Manage Status</h5>
                   <div className="grid grid-cols-2 gap-2 text-center text-xs font-bold">
-                    <button
+                    <LoadingButton
                       onClick={() => handleStatusChange(selectedInquiry.id, "Responded")}
+                      loading={actionLoadingId === selectedInquiry.id}
+                      loadingText=""
                       className={`py-2 px-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                         selectedInquiry.status === "Responded" 
                           ? "bg-emerald-500 border-emerald-500 text-white shadow-xs" 
@@ -505,9 +525,11 @@ export default function AIChatbotInquiries() {
                     >
                       <Check className="w-3.5 h-3.5" />
                       <span>Responded</span>
-                    </button>
-                    <button
+                    </LoadingButton>
+                    <LoadingButton
                       onClick={() => handleStatusChange(selectedInquiry.id, "Reviewed")}
+                      loading={actionLoadingId === selectedInquiry.id}
+                      loadingText=""
                       className={`py-2 px-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                         selectedInquiry.status === "Reviewed" 
                           ? "bg-amber-500 border-amber-500 text-white shadow-xs" 
@@ -516,9 +538,11 @@ export default function AIChatbotInquiries() {
                     >
                       <Clock className="w-3.5 h-3.5" />
                       <span>Reviewed</span>
-                    </button>
-                    <button
+                    </LoadingButton>
+                    <LoadingButton
                       onClick={() => handleStatusChange(selectedInquiry.id, "New Inquiry")}
+                      loading={actionLoadingId === selectedInquiry.id}
+                      loadingText=""
                       className={`py-2 px-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                         selectedInquiry.status === "New Inquiry" 
                           ? "bg-blue-500 border-blue-500 text-white shadow-xs" 
@@ -527,9 +551,11 @@ export default function AIChatbotInquiries() {
                     >
                       <AlertCircle className="w-3.5 h-3.5" />
                       <span>New Inquiry</span>
-                    </button>
-                    <button
+                    </LoadingButton>
+                    <LoadingButton
                       onClick={() => handleStatusChange(selectedInquiry.id, "Cancelled")}
+                      loading={actionLoadingId === selectedInquiry.id}
+                      loadingText=""
                       className={`py-2 px-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                         selectedInquiry.status === "Cancelled" 
                           ? "bg-rose-500 border-rose-500 text-white shadow-xs" 
@@ -538,7 +564,7 @@ export default function AIChatbotInquiries() {
                     >
                       <XCircle className="w-3.5 h-3.5" />
                       <span>Cancel</span>
-                    </button>
+                    </LoadingButton>
                   </div>
                 </div>
               </div>

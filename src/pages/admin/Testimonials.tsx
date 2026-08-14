@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { TableSkeleton } from '../../components/ui/Skeleton';
 import DeleteConfirmModal from '../../components/ui/DeleteConfirmModal';
+import LoadingButton from '../../components/ui/LoadingButton';
 import SEO from '../../components/SEO';
 
 const STATUS_TABS = ['all', 'Pending', 'Approved', 'Rejected'];
@@ -29,6 +30,7 @@ export default function Testimonials() {
   const [selected, setSelected] = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [page, setPage] = useState(1);
 
@@ -70,7 +72,8 @@ export default function Testimonials() {
   }, [currentUser?.role, fetchTestimonials]);
 
   const handleStatusChange = async (id: string, status: string) => {
-    if (!id) return;
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     try {
       const res = await api.updateTestimonialStatus(id, status);
       if (!res.success) {
@@ -85,6 +88,8 @@ export default function Testimonials() {
     } catch (err) {
       console.error('Failed to update testimonial status', err);
       showToast('error', 'Failed to update status');
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -94,7 +99,7 @@ export default function Testimonials() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || isDeleting) return;
     const id = deleteTarget._id || deleteTarget.id || deleteTarget;
     setIsDeleting(true);
     try {
@@ -301,22 +306,26 @@ export default function Testimonials() {
                               <Eye className="w-4 h-4" />
                             </button>
                             {t.status !== 'Approved' && (
-                              <button
+                              <LoadingButton
                                 onClick={() => handleStatusChange(id, 'Approved')}
+                                loading={actionLoadingId === id}
+                                loadingText=""
                                 className="p-2 border border-slate-100 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-xl transition-colors cursor-pointer"
                                 title="Approve"
                               >
                                 <Check className="w-4 h-4" />
-                              </button>
+                              </LoadingButton>
                             )}
                             {t.status !== 'Rejected' && (
-                              <button
+                              <LoadingButton
                                 onClick={() => handleStatusChange(id, 'Rejected')}
+                                loading={actionLoadingId === id}
+                                loadingText=""
                                 className="p-2 border border-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-colors cursor-pointer"
                                 title="Reject"
                               >
                                 <XCircle className="w-4 h-4" />
-                              </button>
+                              </LoadingButton>
                             )}
                             <button
                               onClick={() => handleDelete(id)}
@@ -412,41 +421,49 @@ export default function Testimonials() {
               <div className="border-t border-slate-100 pt-4 space-y-2">
                 <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Moderation Actions</h5>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs font-bold">
-                  <button
+                  <LoadingButton
                     onClick={() => handleStatusChange(selected._id || selected.id, 'Approved')}
                     disabled={selected.status === 'Approved'}
+                    loading={actionLoadingId === (selected._id || selected.id)}
+                    loadingText=""
                     className={`py-2 px-1 rounded-xl border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                       selected.status === 'Approved' ? 'bg-emerald-500 border-emerald-500 text-white shadow-xs' : 'border-slate-200 hover:bg-slate-50 text-slate-600'
                     }`}
                   >
                     Approve
-                  </button>
-                  <button
+                  </LoadingButton>
+                  <LoadingButton
                     onClick={() => handleStatusChange(selected._id || selected.id, 'Rejected')}
                     disabled={selected.status === 'Rejected'}
+                    loading={actionLoadingId === (selected._id || selected.id)}
+                    loadingText=""
                     className={`py-2 px-1 rounded-xl border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                       selected.status === 'Rejected' ? 'bg-rose-500 border-rose-500 text-white shadow-xs' : 'border-slate-200 hover:bg-slate-50 text-slate-600'
                     }`}
                   >
                     Reject
-                  </button>
-                  <button
+                  </LoadingButton>
+                  <LoadingButton
                     onClick={() => handleStatusChange(selected._id || selected.id, 'Pending')}
                     disabled={selected.status === 'Pending'}
+                    loading={actionLoadingId === (selected._id || selected.id)}
+                    loadingText=""
                     className={`py-2 px-1 rounded-xl border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                       selected.status === 'Pending' ? 'bg-amber-500 border-amber-500 text-white shadow-xs' : 'border-slate-200 hover:bg-slate-50 text-slate-600'
                     }`}
                   >
                     Pending
-                  </button>
+                  </LoadingButton>
                 </div>
-                <button
+                <LoadingButton
                   onClick={() => handleDelete(selected._id || selected.id)}
+                  loading={isDeleting}
+                  loadingText="Deleting..."
                   className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 mt-2"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete Review
-                </button>
+                </LoadingButton>
               </div>
             </div>
           ) : (

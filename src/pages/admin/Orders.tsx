@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { TableSkeleton } from '../../components/ui/Skeleton';
 import DeleteConfirmModal from '../../components/ui/DeleteConfirmModal';
+import LoadingButton from '../../components/ui/LoadingButton';
 import SEO from '../../components/SEO';
 
 export default function Orders() {
@@ -18,6 +19,7 @@ export default function Orders() {
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // Bulk selection state (persists across list changes)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -50,6 +52,8 @@ export default function Orders() {
   };
 
   const handleStatusChange = async (id: string, status: string) => {
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     try {
       await api.updateOrderStatus(id, status);
       setOrders(prev => prev.map(o => o._id === id ? { ...o, status } : o));
@@ -58,6 +62,8 @@ export default function Orders() {
       }
     } catch (err) {
       console.error('Failed to update order status', err);
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -495,8 +501,10 @@ export default function Orders() {
               <div className="space-y-3">
                 <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Configure Preparation Status</h5>
                 <div className="grid grid-cols-2 gap-2 text-center text-xs font-bold">
-                  <button
+                  <LoadingButton
                     onClick={() => handleStatusChange(selectedOrder._id, 'pending')}
+                    loading={actionLoadingId === selectedOrder._id}
+                    loadingText=""
                     className={`py-2 px-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       selectedOrder.status === 'pending' 
                         ? 'bg-slate-600 border-slate-600 text-white font-bold shadow-xs' 
@@ -505,9 +513,11 @@ export default function Orders() {
                   >
                     <Clock className="w-3.5 h-3.5" />
                     <span>Pending</span>
-                  </button>
-                  <button
+                  </LoadingButton>
+                  <LoadingButton
                     onClick={() => handleStatusChange(selectedOrder._id, 'processing')}
+                    loading={actionLoadingId === selectedOrder._id}
+                    loadingText=""
                     className={`py-2 px-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       selectedOrder.status === 'processing' 
                         ? 'bg-amber-500 border-amber-500 text-white font-bold shadow-xs' 
@@ -516,9 +526,11 @@ export default function Orders() {
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span>Processing</span>
-                  </button>
-                  <button
+                  </LoadingButton>
+                  <LoadingButton
                     onClick={() => handleStatusChange(selectedOrder._id, 'delivered')}
+                    loading={actionLoadingId === selectedOrder._id}
+                    loadingText=""
                     className={`py-2 px-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       selectedOrder.status === 'delivered' 
                         ? 'bg-blue-500 border-blue-500 text-white font-bold shadow-xs' 
@@ -527,9 +539,11 @@ export default function Orders() {
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>Delivered</span>
-                  </button>
-                  <button
+                  </LoadingButton>
+                  <LoadingButton
                     onClick={() => handleStatusChange(selectedOrder._id, 'cancelled')}
+                    loading={actionLoadingId === selectedOrder._id}
+                    loadingText=""
                     className={`py-2 px-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                       selectedOrder.status === 'cancelled' 
                         ? 'bg-rose-500 border-rose-500 text-white font-bold shadow-xs' 
@@ -538,7 +552,7 @@ export default function Orders() {
                   >
                     <XCircle className="w-3.5 h-3.5" />
                     <span>Cancel Order</span>
-                  </button>
+                  </LoadingButton>
                 </div>
               </div>
             </div>

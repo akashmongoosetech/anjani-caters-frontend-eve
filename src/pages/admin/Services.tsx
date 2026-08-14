@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { api } from "../../lib/api";
 import DeleteConfirmModal from "../../components/ui/DeleteConfirmModal";
+import LoadingButton from "../../components/ui/LoadingButton";
 import RichEditor from "../../components/ui/RichEditor";
 import RichText from "../../components/ui/RichText";
 import { slugify } from "../../lib/slugify";
@@ -79,6 +80,9 @@ export default function ServicesManagement() {
   const [viewingItem, setViewingItem] = useState<ServiceItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingFaq, setIsSavingFaq] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const slugManuallyEdited = useRef(false);
   const [showSeo, setShowSeo] = useState(false);
 
@@ -281,6 +285,7 @@ export default function ServicesManagement() {
   };
 
   const handleSaveFaq = async () => {
+    if (isSavingFaq) return;
     const serviceId = editingItem?._id || editingItem?.id;
     if (!faqForm.question.trim()) {
       showToast("error", "FAQ question is required.");
@@ -320,6 +325,7 @@ export default function ServicesManagement() {
       return;
     }
 
+    setIsSavingFaq(true);
     try {
       const res = editingFaqId
         ? await api.updateServiceFAQ(editingFaqId, payload)
@@ -335,6 +341,8 @@ export default function ServicesManagement() {
       }
     } catch (err: any) {
       showToast("error", err.message || "An error occurred while saving the FAQ");
+    } finally {
+      setIsSavingFaq(false);
     }
   };
 
@@ -492,6 +500,7 @@ export default function ServicesManagement() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!formData.title) {
       showToast("error", "Please fill in the Title.");
       return;
@@ -516,6 +525,7 @@ export default function ServicesManagement() {
       seoKeywords: formData.seoKeywords || [],
     };
 
+    setIsSaving(true);
     try {
       const id = editingItem?._id || editingItem?.id;
       let res;
@@ -568,6 +578,8 @@ export default function ServicesManagement() {
       }
     } catch (err: any) {
       showToast("error", err.message || "An error occurred");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -698,7 +710,8 @@ export default function ServicesManagement() {
 
   const handleToggleActive = async (item: ServiceItem) => {
     const id = item._id || item.id;
-    if (!id) return;
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     const newActive = !item.active;
     try {
       const res = await api.updateService(id, { active: newActive });
@@ -708,12 +721,15 @@ export default function ServicesManagement() {
       }
     } catch (_) {
       showToast("error", "Failed to update status");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
   const handleToggleFeatured = async (item: ServiceItem) => {
     const id = item._id || item.id;
-    if (!id) return;
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     try {
       const res = await api.updateService(id, { featured: !item.featured });
       if (res.success) {
@@ -722,6 +738,8 @@ export default function ServicesManagement() {
       }
     } catch (_) {
       showToast("error", "Failed to update featured state");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -777,7 +795,7 @@ export default function ServicesManagement() {
 
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
-          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-70">
+          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-0">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -977,8 +995,10 @@ export default function ServicesManagement() {
                         </span>
                       </td>
                       <td className="py-3.5 px-4">
-                        <button
+                        <LoadingButton
                           onClick={() => handleToggleFeatured(svc)}
+                          loading={actionLoadingId === id}
+                          loadingText=""
                           className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                             svc.featured
                               ? "bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100"
@@ -987,11 +1007,13 @@ export default function ServicesManagement() {
                           title={svc.featured ? "Featured on home" : "Click to feature"}
                         >
                           <Star className={`w-3.5 h-3.5 ${svc.featured ? "fill-amber-400" : ""}`} />
-                        </button>
+                        </LoadingButton>
                       </td>
                       <td className="py-3.5 px-4">
-                        <button
+                        <LoadingButton
                           onClick={() => handleToggleActive(svc)}
+                          loading={actionLoadingId === id}
+                          loadingText=""
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide transition-all cursor-pointer ${
                             svc.active
                               ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
@@ -999,7 +1021,7 @@ export default function ServicesManagement() {
                           }`}
                         >
                           {svc.active ? "Active" : "Inactive"}
-                        </button>
+                        </LoadingButton>
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -1398,14 +1420,16 @@ export default function ServicesManagement() {
                             >
                               Cancel
                             </button>
-                            <button
+                            <LoadingButton
                               type="button"
                               onClick={handleSaveFaq}
+                              loading={isSavingFaq}
+                              loadingText={editingFaqId ? "Updating..." : "Saving..."}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-secondary text-[11px] font-bold hover:bg-primary/90 cursor-pointer"
                             >
                               <Save className="w-3.5 h-3.5" />
                               {editingFaqId ? "Update FAQ" : "Save FAQ"}
-                            </button>
+                            </LoadingButton>
                           </div>
                         </div>
                       )}
@@ -1481,12 +1505,14 @@ export default function ServicesManagement() {
                 >
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
+                  loading={isSaving}
+                  loadingText={editingItem ? "Saving..." : "Creating..."}
                   className="px-5 py-2 rounded-xl bg-primary text-secondary font-bold hover:bg-primary/90 cursor-pointer shadow-sm"
                 >
                   {editingItem ? "Save Changes" : "Create Service"}
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>

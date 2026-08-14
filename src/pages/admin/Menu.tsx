@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import DeleteConfirmModal from '../../components/ui/DeleteConfirmModal';
+import LoadingButton from '../../components/ui/LoadingButton';
 import SEO from '../../components/SEO';
 
 interface MenuItem {
@@ -67,6 +68,8 @@ export default function MenuManagement() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // Bulk selection state (persists across pagination)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -188,11 +191,13 @@ export default function MenuManagement() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!formData.name || !formData.category) {
       showToast('error', 'Dish Name and Category are required');
       return;
     }
 
+    setIsSaving(true);
     try {
       const id = editingItem?._id;
       let res;
@@ -211,6 +216,8 @@ export default function MenuManagement() {
       }
     } catch (err: any) {
       showToast('error', err.message || 'Save error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -335,7 +342,8 @@ export default function MenuManagement() {
 
   const handleToggleStatus = async (item: MenuItem) => {
     const id = item._id;
-    if (!id) return;
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     const newStatus = item.status === 'Active' ? 'Inactive' : 'Active';
     try {
       const res = await api.updateMenuItem(id, { status: newStatus });
@@ -345,12 +353,15 @@ export default function MenuManagement() {
       }
     } catch (err) {
       showToast('error', 'Failed to update status');
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
   const handleTogglePopular = async (item: MenuItem) => {
     const id = item._id;
-    if (!id) return;
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     try {
       const res = await api.updateMenuItem(id, { popular: !item.popular });
       if (res.success) {
@@ -359,6 +370,8 @@ export default function MenuManagement() {
       }
     } catch (err) {
       showToast('error', 'Failed to update popular tag');
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -412,7 +425,7 @@ export default function MenuManagement() {
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
           
           {/* Search Form */}
-          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-[280px]">
+          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-0">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -632,8 +645,10 @@ export default function MenuManagement() {
                         ₹{item.price}
                       </td>
                       <td className="py-3.5 px-4">
-                        <button
+                        <LoadingButton
                           onClick={() => handleTogglePopular(item)}
+                          loading={actionLoadingId === id}
+                          loadingText=""
                           className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
                             item.popular
                               ? 'bg-amber-50 text-amber-600 border-amber-200'
@@ -641,11 +656,13 @@ export default function MenuManagement() {
                           }`}
                         >
                           <Star className={`w-3.5 h-3.5 ${item.popular ? 'fill-amber-400' : ''}`} />
-                        </button>
+                        </LoadingButton>
                       </td>
                       <td className="py-3.5 px-4">
-                        <button
+                        <LoadingButton
                           onClick={() => handleToggleStatus(item)}
+                          loading={actionLoadingId === id}
+                          loadingText=""
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
                             item.status === 'Active'
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
@@ -653,7 +670,7 @@ export default function MenuManagement() {
                           }`}
                         >
                           {item.status}
-                        </button>
+                        </LoadingButton>
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -845,12 +862,14 @@ export default function MenuManagement() {
                 >
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
+                  loading={isSaving}
+                  loadingText={editingItem ? 'Saving...' : 'Adding Dish...'}
                   className="px-5 py-2 rounded-xl bg-primary text-secondary font-bold hover:bg-primary/90 cursor-pointer shadow-sm"
                 >
                   {editingItem ? 'Save Changes' : 'Add Dish'}
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import DeleteConfirmModal from '../../components/ui/DeleteConfirmModal';
+import LoadingButton from '../../components/ui/LoadingButton';
 import SEO from '../../components/SEO';
 
 interface GalleryItem {
@@ -52,6 +53,9 @@ export default function GalleryManagement() {
   const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
   const [viewingItem, setViewingItem] = useState<GalleryItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState<Partial<GalleryItem>>({
@@ -206,6 +210,8 @@ export default function GalleryManagement() {
       return;
     }
 
+    if (isSaving) return;
+    setIsSaving(true);
     try {
       const id = editingItem?._id;
       let res;
@@ -224,11 +230,14 @@ export default function GalleryManagement() {
       }
     } catch (err: any) {
       showToast('error', err.message || 'Save error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async () => {
     if (!deletingId) return;
+    setIsDeleting(true);
     try {
       const res = await api.deleteGalleryItem(deletingId);
       if (res.success) {
@@ -241,11 +250,13 @@ export default function GalleryManagement() {
     } catch (err: any) {
       showToast('error', err.message || 'Deletion error');
     }
+    setIsDeleting(false);
   };
 
   const handleToggleStatus = async (item: GalleryItem) => {
     const id = item._id;
-    if (!id) return;
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     const newStatus = item.status === 'Active' ? 'Inactive' : 'Active';
     try {
       const res = await api.updateGalleryItem(id, { status: newStatus });
@@ -255,6 +266,8 @@ export default function GalleryManagement() {
       }
     } catch (err) {
       showToast('error', 'Failed to update status');
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -316,7 +329,7 @@ export default function GalleryManagement() {
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
           
-          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-[280px]">
+          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-0">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -443,14 +456,16 @@ export default function GalleryManagement() {
                   </div>
 
                   <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-3 text-[10px]">
-                    <button
+                    <LoadingButton
                       onClick={() => handleToggleStatus(item)}
+                      loading={actionLoadingId === id}
+                      loadingText=""
                       className={`px-2 py-0.5 rounded-full font-bold cursor-pointer ${
                         item.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                       }`}
                     >
                       {item.status}
-                    </button>
+                    </LoadingButton>
 
                     <div className="flex items-center gap-1">
                       <button
@@ -671,12 +686,14 @@ export default function GalleryManagement() {
                 >
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
+                  loading={isSaving}
+                  loadingText={editingItem ? 'Saving...' : 'Adding...'}
                   className="px-5 py-2 rounded-xl bg-primary text-secondary font-bold hover:bg-primary/90 cursor-pointer shadow-sm"
                 >
                   {editingItem ? 'Save Item' : 'Add Item'}
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>
@@ -691,6 +708,7 @@ export default function GalleryManagement() {
         title="Delete Gallery Item"
         itemName="this media item"
         message="Are you sure you want to remove this media item from your website gallery?"
+        isLoading={isDeleting}
       />
 
       {/* View Modal */}

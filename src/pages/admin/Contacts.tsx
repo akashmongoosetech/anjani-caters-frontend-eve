@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { TableSkeleton } from '../../components/ui/Skeleton';
 import DeleteConfirmModal from '../../components/ui/DeleteConfirmModal';
+import LoadingButton from '../../components/ui/LoadingButton';
 import SEO from '../../components/SEO';
 
 export default function Contacts() {
@@ -21,6 +22,7 @@ export default function Contacts() {
   const [showExportToast, setShowExportToast] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // Bulk selection state (persists across list changes)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -67,6 +69,8 @@ export default function Contacts() {
   }, [currentUser?.role, fetchContacts]);
 
   const handleStatusChange = async (id: string, status: string) => {
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     try {
       await api.updateContactStatus(id, status);
       setContacts(prev => prev.map(c => c._id === id || c.id === id ? { ...c, status } : c));
@@ -75,6 +79,8 @@ export default function Contacts() {
       }
     } catch (err) {
       console.error('Failed to update contact status', err);
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -588,8 +594,10 @@ export default function Contacts() {
               <div className="space-y-3 text-left">
                 <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Actionable Status</h5>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs font-bold">
-                  <button
+                  <LoadingButton
                     onClick={() => handleStatusChange(selectedInquiry._id || selectedInquiry.id, 'new')}
+                    loading={actionLoadingId === (selectedInquiry._id || selectedInquiry.id)}
+                    loadingText=""
                     className={`py-2 px-1 rounded-xl border transition-all cursor-pointer ${
                       selectedInquiry.status === 'new' 
                         ? 'bg-rose-500 border-rose-500 text-white shadow-xs' 
@@ -597,9 +605,11 @@ export default function Contacts() {
                     }`}
                   >
                     <span>Unread</span>
-                  </button>
-                  <button
+                  </LoadingButton>
+                  <LoadingButton
                     onClick={() => handleStatusChange(selectedInquiry._id || selectedInquiry.id, 'reviewed')}
+                    loading={actionLoadingId === (selectedInquiry._id || selectedInquiry.id)}
+                    loadingText=""
                     className={`py-2 px-1 rounded-xl border transition-all cursor-pointer ${
                       selectedInquiry.status === 'reviewed' 
                         ? 'bg-amber-500 border-amber-500 text-white shadow-xs' 
@@ -607,9 +617,11 @@ export default function Contacts() {
                     }`}
                   >
                     <span>Review</span>
-                  </button>
-                  <button
+                  </LoadingButton>
+                  <LoadingButton
                     onClick={() => handleStatusChange(selectedInquiry._id || selectedInquiry.id, 'responded')}
+                    loading={actionLoadingId === (selectedInquiry._id || selectedInquiry.id)}
+                    loadingText=""
                     className={`py-2 px-1 rounded-xl border transition-all cursor-pointer ${
                       selectedInquiry.status === 'responded' 
                         ? 'bg-emerald-500 border-emerald-500 text-white shadow-xs' 
@@ -617,7 +629,7 @@ export default function Contacts() {
                     }`}
                   >
                     <span>Respond</span>
-                  </button>
+                  </LoadingButton>
                 </div>
               </div>
             </div>

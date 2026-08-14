@@ -13,7 +13,7 @@ export default function PageBanner({
   backgroundImage = 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80' 
 }: PageBannerProps) {
   return (
-    <div className="relative h-[320px] sm:h-[380px] flex items-center justify-center overflow-hidden">
+    <div className="relative min-h-[320px] sm:min-h-[380px] flex items-center justify-center overflow-hidden py-14 sm:py-16">
       {/* Background Image with luxury dark gradient overlay */}
       <div 
         className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"

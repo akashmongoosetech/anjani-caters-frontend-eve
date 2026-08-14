@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import SEO from '../../components/SEO';
+import LoadingButton from '../../components/ui/LoadingButton';
 
 interface CateringPackage {
   _id?: string;
@@ -43,6 +44,9 @@ export default function PackagesManagement() {
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<CateringPackage | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState<Partial<CateringPackage>>({
@@ -180,11 +184,13 @@ export default function PackagesManagement() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!formData.name || !formData.price) {
       showToast('error', 'Package Name and Price are required');
       return;
     }
 
+    setIsSaving(true);
     try {
       const id = editingItem?._id || editingItem?.id;
       let res;
@@ -203,11 +209,14 @@ export default function PackagesManagement() {
       }
     } catch (err: any) {
       showToast('error', err.message || 'Save error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deletingId) return;
+    if (!deletingId || isDeleting) return;
+    setIsDeleting(true);
     try {
       const res = await api.deletePackage(deletingId);
       if (res.success) {
@@ -219,12 +228,15 @@ export default function PackagesManagement() {
       }
     } catch (err: any) {
       showToast('error', err.message || 'Deletion error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleToggleStatus = async (pkg: CateringPackage) => {
     const id = pkg._id || pkg.id;
-    if (!id) return;
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     const newStatus = pkg.status === 'Active' ? 'Inactive' : 'Active';
     try {
       const res = await api.updatePackage(id, { status: newStatus });
@@ -234,6 +246,8 @@ export default function PackagesManagement() {
       }
     } catch (err) {
       showToast('error', 'Failed to update status');
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -287,7 +301,7 @@ export default function PackagesManagement() {
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
           
           {/* Search Form */}
-          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-[280px]">
+          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-0">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -431,8 +445,10 @@ export default function PackagesManagement() {
                         </span>
                       </td>
                       <td className="py-3.5 px-4">
-                        <button
+                        <LoadingButton
                           onClick={() => handleToggleStatus(pkg)}
+                          loading={actionLoadingId === id}
+                          loadingText=""
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
                             pkg.status === 'Active'
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
@@ -440,7 +456,7 @@ export default function PackagesManagement() {
                           }`}
                         >
                           {pkg.status}
-                        </button>
+                        </LoadingButton>
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -677,12 +693,14 @@ export default function PackagesManagement() {
                 >
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
+                  loading={isSaving}
+                  loadingText={editingItem ? 'Saving...' : 'Creating...'}
                   className="px-5 py-2 rounded-xl bg-primary text-secondary font-bold hover:bg-primary/90 cursor-pointer shadow-sm"
                 >
                   {editingItem ? 'Save Package' : 'Create Package'}
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>
@@ -709,12 +727,14 @@ export default function PackagesManagement() {
               >
                 Cancel
               </button>
-              <button
+              <LoadingButton
                 onClick={handleDelete}
+                loading={isDeleting}
+                loadingText="Deleting..."
                 className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 cursor-pointer shadow-sm"
               >
                 Yes, Delete
-              </button>
+              </LoadingButton>
             </div>
           </div>
         </div>

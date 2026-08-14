@@ -5,6 +5,7 @@ import {
   Check, Eye, EyeOff, Save, Key, User as UserIcon, Shield, Sparkles, AlertCircle 
 } from 'lucide-react';
 import SEO from '../../components/SEO';
+import LoadingButton from '../../components/ui/LoadingButton';
 
 export default function Settings() {
   const { currentUser, updateProfile } = useAdminAuth();
@@ -36,6 +37,8 @@ export default function Settings() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   // Password Strength Indicators
   const hasMinLen = newPassword.length >= 8;
@@ -51,37 +54,44 @@ export default function Settings() {
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingProfile) return;
+    setIsSavingProfile(true);
     try {
       if (currentUser?.id) {
         await api.updateProfile({ firstName, lastName, email, mobile, profilePicture });
       }
       updateProfile({ firstName, lastName, email, mobile, profilePicture });
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 3000);
     } catch (err) {
       console.error('Failed to save profile', err);
+    } finally {
+      setIsSavingProfile(false);
     }
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 3000);
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingPassword) return;
     if (!isPasswordValid) {
       setPasswordError('Please ensure the new password adheres to all safety rules.');
       return;
     }
+    setIsSavingPassword(true);
     try {
       await api.changePassword(currentPassword, newPassword);
+      setPasswordSaved(true);
+      setPasswordError('');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordSaved(false), 3000);
     } catch (err) {
       console.error('Failed to change password', err);
       setPasswordError('Failed to change password. Please try again.');
-      return;
+    } finally {
+      setIsSavingPassword(false);
     }
-    setPasswordSaved(true);
-    setPasswordError('');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => setPasswordSaved(false), 3000);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -219,13 +229,15 @@ export default function Settings() {
             </div>
 
             <div className="sm:col-span-2 border-t border-slate-50 pt-5 mt-4 flex justify-end">
-              <button
+              <LoadingButton
                 type="submit"
+                loading={isSavingProfile}
+                loadingText="Saving..."
                 className="px-5 py-2.5 bg-secondary hover:bg-slate-850 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
               >
                 <Save className="w-4 h-4" />
                 <span>Save Profile Credentials</span>
-              </button>
+              </LoadingButton>
             </div>
           </form>
         </div>
@@ -357,8 +369,10 @@ export default function Settings() {
 
             {/* Submit button */}
             <div className="border-t border-slate-50 pt-5 mt-4 flex justify-end">
-              <button
+              <LoadingButton
                 type="submit"
+                loading={isSavingPassword}
+                loadingText="Saving..."
                 disabled={!isPasswordValid}
                 className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all ${
                   isPasswordValid 
@@ -368,7 +382,7 @@ export default function Settings() {
               >
                 <Key className="w-4 h-4" />
                 <span>Confirm New Password</span>
-              </button>
+              </LoadingButton>
             </div>
           </form>
         </div>

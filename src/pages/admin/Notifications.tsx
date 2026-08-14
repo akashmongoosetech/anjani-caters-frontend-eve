@@ -9,6 +9,7 @@ import {
 import { api } from '../../lib/api';
 import { useNotifications, NotificationItem } from '../../context/NotificationContext';
 import DeleteConfirmModal from '../../components/ui/DeleteConfirmModal';
+import LoadingButton from '../../components/ui/LoadingButton';
 import SEO from '../../components/SEO';
 
 function formatFullDate(dateStr: string): string {
@@ -65,6 +66,8 @@ export default function NotificationsPage() {
   const [selectedNotif, setSelectedNotif] = useState<NotificationItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // Bulk Selection State (persists across pagination, keyed by notification id)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -154,16 +157,22 @@ export default function NotificationsPage() {
   // Actions
   const handleMarkRead = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     try {
       await api.markNotificationAsRead(id);
       setItems(prev => prev.map(n => ((n._id === id || n.id === id) ? { ...n, readStatus: true } : n)));
       refreshGlobalNotifications();
     } catch (err) {
       console.error('Failed to mark read:', err);
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
   const handleMarkAllRead = async () => {
+    if (isMarkingAllRead) return;
+    setIsMarkingAllRead(true);
     try {
       await api.markAllNotificationsAsRead();
       setItems(prev => prev.map(n => ({ ...n, readStatus: true })));
@@ -171,6 +180,8 @@ export default function NotificationsPage() {
       refreshGlobalNotifications();
     } catch (err) {
       console.error('Failed to mark all read:', err);
+    } finally {
+      setIsMarkingAllRead(false);
     }
   };
 
@@ -429,13 +440,15 @@ export default function NotificationsPage() {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Sync Live</span>
           </button>
-          <button
+          <LoadingButton
             onClick={handleMarkAllRead}
+            loading={isMarkingAllRead}
+            loadingText="Marking..."
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-amber-500 text-secondary text-xs font-bold font-sans shadow-md transition-all cursor-pointer"
           >
             <CheckCheck className="w-4 h-4" />
             <span>Mark All Read</span>
-          </button>
+          </LoadingButton>
           <button
             onClick={handleDeleteAll}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold font-sans shadow-md transition-all cursor-pointer"
@@ -756,13 +769,15 @@ export default function NotificationsPage() {
                       <td className="py-3.5 px-4 align-top text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                           {!notif.readStatus && (
-                            <button
+                            <LoadingButton
                               onClick={(e) => handleMarkRead(id, e)}
+                              loading={actionLoadingId === id}
+                              loadingText=""
                               className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                               title="Mark as Read"
                             >
                               <CheckCheck className="w-4 h-4" />
-                            </button>
+                            </LoadingButton>
                           )}
                           <button
                             onClick={() => setSelectedNotif(notif)}
@@ -893,16 +908,18 @@ export default function NotificationsPage() {
               {/* Modal Footer */}
               <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
                 {!selectedNotif.readStatus && (
-                  <button
+                  <LoadingButton
                     onClick={() => {
                       const id = selectedNotif._id || selectedNotif.id;
                       if (id) handleMarkRead(id);
                       setSelectedNotif({ ...selectedNotif, readStatus: true });
                     }}
+                    loading={actionLoadingId === (selectedNotif._id || selectedNotif.id)}
+                    loadingText=""
                     className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition-all cursor-pointer"
                   >
                     Mark as Read
-                  </button>
+                  </LoadingButton>
                 )}
                 <button
                   onClick={() => {

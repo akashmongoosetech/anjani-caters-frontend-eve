@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { api } from "../../lib/api";
 import DeleteConfirmModal from "../../components/ui/DeleteConfirmModal";
+import LoadingButton from "../../components/ui/LoadingButton";
 import { slugify } from "../../lib/slugify";
 import SEO from "../../components/SEO";
 import ServicesAdminTabs from "../../components/admin/ServicesAdminTabs";
@@ -55,6 +56,8 @@ export default function CategoryManagement() {
   const [viewingItem, setViewingItem] = useState<CategoryItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const slugManuallyEdited = useRef(false);
 
   const [formData, setFormData] = useState<Partial<CategoryItem>>({
@@ -156,6 +159,7 @@ export default function CategoryManagement() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!formData.name?.trim()) {
       showToast("error", "Please fill in the Category Name.");
       return;
@@ -171,6 +175,7 @@ export default function CategoryManagement() {
       slug: slugValue,
       displayOrder: Number(formData.displayOrder) || 0,
     };
+    setIsSaving(true);
     try {
       const id = editingItem?._id || editingItem?.id;
       let res;
@@ -188,6 +193,8 @@ export default function CategoryManagement() {
       }
     } catch (err: any) {
       showToast("error", err.message || "An error occurred");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -211,7 +218,8 @@ export default function CategoryManagement() {
 
   const handleToggleStatus = async (item: CategoryItem) => {
     const id = item._id || item.id;
-    if (!id) return;
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     const newStatus = item.status === "Active" ? "Inactive" : "Active";
     try {
       const res = await api.updateCategory(id, { status: newStatus });
@@ -221,6 +229,8 @@ export default function CategoryManagement() {
       }
     } catch (_) {
       showToast("error", "Failed to update status");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -268,7 +278,7 @@ export default function CategoryManagement() {
 
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
-          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-[280px]">
+          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-0">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -395,8 +405,10 @@ export default function CategoryManagement() {
                       </td>
                       <td className="py-3.5 px-4">{cat.displayOrder ?? 0}</td>
                       <td className="py-3.5 px-4">
-                        <button
+                        <LoadingButton
                           onClick={() => handleToggleStatus(cat)}
+                          loading={actionLoadingId === id}
+                          loadingText=""
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide transition-all cursor-pointer ${
                             cat.status === "Active"
                               ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
@@ -404,7 +416,7 @@ export default function CategoryManagement() {
                           }`}
                         >
                           {cat.status}
-                        </button>
+                        </LoadingButton>
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -564,9 +576,14 @@ export default function CategoryManagement() {
                 <button type="button" onClick={() => setIsFormOpen(false)} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 cursor-pointer">
                   Cancel
                 </button>
-                <button type="submit" className="px-5 py-2 rounded-xl bg-primary text-secondary font-bold hover:bg-primary/90 cursor-pointer shadow-sm">
+                <LoadingButton
+                  type="submit"
+                  loading={isSaving}
+                  loadingText={editingItem ? "Saving..." : "Creating..."}
+                  className="px-5 py-2 rounded-xl bg-primary text-secondary font-bold hover:bg-primary/90 cursor-pointer shadow-sm"
+                >
                   {editingItem ? "Save Changes" : "Create Category"}
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>

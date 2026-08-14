@@ -8,6 +8,7 @@ import {
 import { api } from '../../lib/api';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import SEO from '../../components/SEO';
+import LoadingButton from '../../components/ui/LoadingButton';
 
 interface UserItem {
   _id?: string;
@@ -50,6 +51,10 @@ export default function UsersManagement() {
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState<string>('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<Partial<UserItem & { password: string; confirmPassword: string }>>({
     firstName: '',
@@ -180,6 +185,7 @@ export default function UsersManagement() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     if (!formData.firstName || !formData.email) {
       showToast('error', 'First Name and Email are required');
       return;
@@ -200,6 +206,7 @@ export default function UsersManagement() {
       }
     }
 
+    setIsSaving(true);
     try {
       const id = editingItem?._id || editingItem?.id;
       const payload: any = {
@@ -230,11 +237,14 @@ export default function UsersManagement() {
       }
     } catch (err: any) {
       showToast('error', err.message || 'Save error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deletingId) return;
+    if (!deletingId || isDeleting) return;
+    setIsDeleting(true);
     try {
       const res = await api.deleteUser(deletingId);
       if (res.success) {
@@ -246,15 +256,18 @@ export default function UsersManagement() {
       }
     } catch (err: any) {
       showToast('error', err.message || 'Deletion error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleResetPasswordSubmit = async () => {
-    if (!resettingId) return;
+    if (!resettingId || isResetting) return;
     if (newPassword && newPassword.length < 8) {
       showToast('error', 'Password must be at least 8 characters');
       return;
     }
+    setIsResetting(true);
     try {
       const res = await api.resetUserPassword(resettingId, newPassword || '');
       if (res.success) {
@@ -266,12 +279,15 @@ export default function UsersManagement() {
       }
     } catch (err: any) {
       showToast('error', 'Error resetting password');
+    } finally {
+      setIsResetting(false);
     }
   };
 
   const handleToggleStatus = async (user: UserItem) => {
     const id = user._id || user.id;
-    if (!id) return;
+    if (!id || actionLoadingId) return;
+    setActionLoadingId(id);
     const statusCycle: Record<string, string> = { Active: 'Inactive', Inactive: 'Suspended', Suspended: 'Active' };
     const newStatus = statusCycle[user.status] || 'Active';
     try {
@@ -284,6 +300,8 @@ export default function UsersManagement() {
       }
     } catch (err) {
       showToast('error', 'Failed to change user status');
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -337,7 +355,7 @@ export default function UsersManagement() {
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
           
-          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-[280px]">
+          <form onSubmit={handleSearchSubmit} className="flex-1 relative min-w-0">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -471,9 +489,11 @@ export default function UsersManagement() {
                         </span>
                       </td>
                       <td className="py-3.5 px-4">
-                        <button
+                        <LoadingButton
                           onClick={() => handleToggleStatus(u)}
                           disabled={isSelf}
+                          loading={actionLoadingId === id}
+                          loadingText=""
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                             u.status === 'Active'
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
@@ -483,7 +503,7 @@ export default function UsersManagement() {
                           }`}
                         >
                           {u.status}
-                        </button>
+                        </LoadingButton>
                       </td>
                       <td className="py-3.5 px-4 font-mono text-slate-500 text-[11px]">
                         {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : 'Never'}
@@ -744,12 +764,14 @@ export default function UsersManagement() {
                 >
                   Cancel
                 </button>
-                <button
+                <LoadingButton
                   type="submit"
+                  loading={isSaving}
+                  loadingText={editingItem ? 'Saving...' : 'Creating...'}
                   className="px-5 py-2 rounded-xl bg-primary text-secondary font-bold hover:bg-primary/90 cursor-pointer shadow-sm"
                 >
                   {editingItem ? 'Save Changes' : 'Create User'}
-                </button>
+                </LoadingButton>
               </div>
             </form>
           </div>
@@ -787,12 +809,14 @@ export default function UsersManagement() {
               >
                 Cancel
               </button>
-              <button
+              <LoadingButton
                 onClick={handleResetPasswordSubmit}
+                loading={isResetting}
+                loadingText="Resetting..."
                 className="px-4 py-2 rounded-xl bg-primary text-secondary font-bold text-xs hover:bg-primary/90 cursor-pointer shadow-sm"
               >
                 Reset & Email
-              </button>
+              </LoadingButton>
             </div>
           </div>
         </div>
@@ -818,12 +842,14 @@ export default function UsersManagement() {
               >
                 Cancel
               </button>
-              <button
+              <LoadingButton
                 onClick={handleDelete}
+                loading={isDeleting}
+                loadingText="Deleting..."
                 className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 cursor-pointer shadow-sm"
               >
                 Delete Account
-              </button>
+              </LoadingButton>
             </div>
           </div>
         </div>
