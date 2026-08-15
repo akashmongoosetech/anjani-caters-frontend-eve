@@ -264,7 +264,7 @@ export default function Services() {
                     <h3 className="font-serif text-2xl sm:text-3xl font-bold text-secondary text-center mb-8">{group.label}</h3>
                   )}
 
-                  <ScrollReveal direction="up" staggerChildren={true} stagger={0.15} className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-5xl mx-auto">
+                  <ScrollReveal direction="up" staggerChildren={true} stagger={0.15} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 max-w-5xl mx-auto">
                     {group.services.map((service) => {
                       const IconComp = iconFor(service.icon);
                       return (
