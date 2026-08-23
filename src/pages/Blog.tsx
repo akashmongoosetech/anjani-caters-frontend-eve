@@ -1,41 +1,57 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Calendar, User, ArrowRight, Clock, Tag, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
-import PageBanner from '../components/layout/PageBanner';
-import SEO from '../components/SEO';
-import ScrollReveal from '../components/ScrollReveal';
-import { getBlogs } from '../data/getAsyncData';
-import { useLanguage } from '../context/LanguageContext';
-import { useAsyncData } from '../hooks/useAsyncData';
-import LazyImage from '../components/ui/LazyImage';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import {
+  Search,
+  Calendar,
+  User,
+  ArrowRight,
+  Clock,
+  Tag,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+} from "lucide-react";
+import PageBanner from "../components/layout/PageBanner";
+import SEO from "../components/SEO";
+import ScrollReveal from "../components/ScrollReveal";
+import { getBlogs } from "../data/getAsyncData";
+import { useLanguage } from "../context/LanguageContext";
+import { useAsyncData } from "../hooks/useAsyncData";
+import LazyImage from "../components/ui/LazyImage";
+import { formatDateTime } from "../components/DateTime";
 
 export default function Blog() {
   const { language, t } = useLanguage();
-  const { data: blogs } = useAsyncData(() => getBlogs(language), [], [language]);
+  const { data: blogs } = useAsyncData(
+    () => getBlogs(language),
+    [],
+    [language],
+  );
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
-  const allTags = Array.from(new Set(blogs.flatMap(b => b.tags)));
+  const allTags = Array.from(new Set(blogs.flatMap((b) => b.tags)));
 
   const filteredBlogs = blogs.filter((blog) => {
-    const stripHtml = (s: string) => s ? s.replace(/<[^>]*>/g, '') : '';
-    const matchesSearch = blog.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          stripHtml(blog.excerpt).toLowerCase().includes(searchQuery.toLowerCase());
+    const stripHtml = (s: string) => (s ? s.replace(/<[^>]*>/g, "") : "");
+    const matchesSearch =
+      blog.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      stripHtml(blog.excerpt).toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTag = selectedTag ? blog.tags.includes(selectedTag) : true;
     return matchesSearch && matchesTag;
   });
 
   return (
     <div>
-      <SEO 
-        title={t('blogTitle')} 
-        description={t('blogSubtitle')}
+      <SEO
+        title={t("blogTitle")}
+        description={t("blogSubtitle")}
         urlPath="/blogs"
       />
-      <PageBanner 
-        title={t('blogTitle')} 
-        breadcrumbs={[{ name: t('blog') }]} 
+      <PageBanner
+        title={t("blogTitle")}
+        breadcrumbs={[{ name: t("blog") }]}
         backgroundImage="https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=1600&q=80"
       />
 
@@ -43,15 +59,18 @@ export default function Blog() {
       <section className="py-20 bg-cream">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-            
             {/* LEFT SIDE - Blog Listing - 8 Columns */}
             <div className="lg:col-span-8 flex flex-col gap-10 text-left">
-              
               {filteredBlogs.length === 0 ? (
                 <div className="bg-white rounded-3xl p-10 text-center border border-slate-100 shadow-sm">
-                  <h3 className="font-serif text-2xl font-bold text-secondary mb-2">{t('noResults')}</h3>
+                  <h3 className="font-serif text-2xl font-bold text-secondary mb-2">
+                    {t("noResults")}
+                  </h3>
                   <button
-                    onClick={() => { setSearchQuery(''); setSelectedTag(null); }}
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedTag(null);
+                    }}
                     className="bg-primary text-secondary px-6 py-2 rounded-full font-bold text-xs cursor-pointer"
                   >
                     Reset
@@ -79,10 +98,12 @@ export default function Blog() {
                       <div className="p-6 sm:p-8 flex flex-col gap-4">
                         <div className="flex flex-wrap gap-5 text-xs text-slate-400 font-sans font-medium">
                           <span className="flex items-center gap-1.5">
-                            <Calendar className="w-4 h-4 text-primary" /> {blog.date}
+                            <Calendar className="w-4 h-4 text-primary" />
+                             {formatDateTime(blog.date)}
                           </span>
                           <span className="flex items-center gap-1.5">
-                            <User className="w-4 h-4 text-primary" /> By {blog.author.name}
+                            <User className="w-4 h-4 text-primary" /> By{" "}
+                            {blog.author.name}
                           </span>
                         </div>
 
@@ -91,7 +112,10 @@ export default function Blog() {
                         </h3>
 
                         <p className="font-sans text-slate-500 text-sm sm:text-base leading-relaxed">
-                          {(() => { const s = blog.excerpt; return s ? s.replace(/<[^>]*>/g, '') : ''; })()}
+                          {(() => {
+                            const s = blog.excerpt;
+                            return s ? s.replace(/<[^>]*>/g, "") : "";
+                          })()}
                         </p>
 
                         {blog.tags && blog.tags.length > 0 && (
@@ -120,26 +144,26 @@ export default function Blog() {
                         to={`/blogs/${blog.slug}`}
                         className="inline-flex items-center gap-2 bg-secondary hover:bg-secondary-hover text-white font-sans font-bold text-xs sm:text-sm px-6 py-3 rounded-full transition-all"
                       >
-                        <span>{t('readMore')}</span>
+                        <span>{t("readMore")}</span>
                         <ArrowRight className="w-4 h-4" />
                       </Link>
                     </div>
                   </article>
                 ))
               )}
-
             </div>
 
             {/* RIGHT SIDEBAR - 4 Columns */}
             <div className="lg:col-span-4 flex flex-col gap-8 text-left">
-              
               {/* Search Widget */}
               <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-                <h4 className="font-serif text-lg font-bold text-secondary mb-4">{t('search')}</h4>
+                <h4 className="font-serif text-lg font-bold text-secondary mb-4">
+                  {t("search")}
+                </h4>
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder={t('searchPlaceholder')}
+                    placeholder={t("searchPlaceholder")}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-cream rounded-full py-3 pl-5 pr-12 text-xs font-sans focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-700"
@@ -157,17 +181,21 @@ export default function Blog() {
                   <button
                     onClick={() => setSelectedTag(null)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-sans font-bold transition-colors cursor-pointer ${
-                      selectedTag === null ? 'bg-primary text-secondary' : 'bg-cream text-slate-600 hover:bg-linen'
+                      selectedTag === null
+                        ? "bg-primary text-secondary"
+                        : "bg-cream text-slate-600 hover:bg-linen"
                     }`}
                   >
-                    {t('all')}
+                    {t("all")}
                   </button>
                   {allTags.map((tag) => (
                     <button
                       key={tag}
                       onClick={() => setSelectedTag(tag)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-sans font-bold transition-colors cursor-pointer ${
-                        selectedTag === tag ? 'bg-primary text-secondary' : 'bg-cream text-slate-600 hover:bg-linen'
+                        selectedTag === tag
+                          ? "bg-primary text-secondary"
+                          : "bg-cream text-slate-600 hover:bg-linen"
                       }`}
                     >
                       #{tag}
@@ -175,9 +203,7 @@ export default function Blog() {
                   ))}
                 </div>
               </div>
-
             </div>
-
           </div>
         </div>
       </section>
