@@ -745,7 +745,7 @@ export default function BlogsManagement() {
                     </label>
                     <TagInput
                       tags={formData.tags || []}
-                      onChange={(tags) => setFormData({ ...formData, tags })}
+                      onChange={(tags) => setFormData(prev => ({ ...prev, tags }))}
                       placeholder="Type tag and press Enter, Comma, or Tab..."
                     />
                   </div>

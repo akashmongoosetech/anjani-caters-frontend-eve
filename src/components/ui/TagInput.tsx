@@ -1,4 +1,4 @@
-import { useState, useRef, KeyboardEvent, ChangeEvent } from 'react';
+import { useState, useRef, useCallback, KeyboardEvent, ChangeEvent } from 'react';
 import { X } from 'lucide-react';
 
 interface TagInputProps {
@@ -30,19 +30,23 @@ export default function TagInput({
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const tagsRef = useRef(tags);
+  tagsRef.current = tags;
 
-  const addTag = (raw: string) => {
+  const addTag = useCallback((raw: string) => {
     const tag = normalizeTag(raw);
     if (!tag) return;
     if (tag.length > maxTagLength) return;
-    if (tags.length >= maxTags) return;
-    if (tags.some(t => t.toLowerCase() === tag.toLowerCase())) return;
-    onChange([...tags, tag]);
-  };
+    if (tagsRef.current.length >= maxTags) return;
+    if (tagsRef.current.some(t => t.toLowerCase() === tag.toLowerCase())) return;
+    const newTags = [...tagsRef.current, tag];
+    onChange(newTags);
+  }, [maxTagLength, maxTags, onChange]);
 
-  const removeTag = (index: number) => {
-    onChange(tags.filter((_, i) => i !== index));
-  };
+  const removeTag = useCallback((index: number) => {
+    const newTags = tagsRef.current.filter((_, i) => i !== index);
+    onChange(newTags);
+  }, [onChange]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
