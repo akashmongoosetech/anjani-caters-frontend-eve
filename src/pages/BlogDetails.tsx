@@ -22,13 +22,14 @@ import { api } from "../lib/api";
 import { getInitials, getAvatarColor } from "../lib/avatar";
 import type { BlogComment } from "../types";
 import { formatDateTime } from "../components/DateTime";
+import { BlogDetailSkeleton } from "../components/SkeletonGrid";
 
 const UPLOAD_URL = (import.meta as any).env?.VITE_API_URL || "/api";
 
 export default function BlogDetails() {
   const { slug } = useParams<{ slug: string }>();
 
-  const { data: blog } = useAsyncData(
+  const { data: blog, loading: blogLoading, error: blogError } = useAsyncData(
     () => getBlogBySlug(slug || "", "en"),
     null,
     [slug],
@@ -81,12 +82,19 @@ export default function BlogDetails() {
     if (!blog) return;
     let cancelled = false;
     setCommentsLoading(true);
-    getBlogComments(blog.id).then((data) => {
-      if (!cancelled) {
-        setComments(data);
-        setCommentsLoading(false);
-      }
-    });
+    getBlogComments(blog.id)
+      .then((data) => {
+        if (!cancelled) {
+          setComments(data);
+          setCommentsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setComments([]);
+          setCommentsLoading(false);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -95,6 +103,96 @@ export default function BlogDetails() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [slug]);
+
+  if (blogLoading) {
+    return (
+      <div>
+        <SEO
+          title="Loading..."
+          description=""
+          urlPath={`/blogs/${slug}`}
+          type="article"
+        />
+        <Helmet>
+          <script type="application/ld+json">
+            {JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "BreadcrumbList",
+              itemListElement: [
+                {
+                  "@type": "ListItem",
+                  position: 1,
+                  name: "Home",
+                  item: `${typeof window !== "undefined" ? window.location.origin : ""}/`,
+                },
+                {
+                  "@type": "ListItem",
+                  position: 2,
+                  name: "Blog",
+                  item: `${typeof window !== "undefined" ? window.location.origin : ""}/blogs`,
+                },
+                {
+                  "@type": "ListItem",
+                  position: 3,
+                  name: "Loading...",
+                  item: typeof window !== "undefined" ? window.location.href : "",
+                },
+              ],
+            })}
+          </script>
+        </Helmet>
+        <PageBanner
+          title="Loading..."
+          breadcrumbs={[
+            { name: "Blog", path: "/blogs" },
+            { name: "Post details" },
+          ]}
+          backgroundImage=""
+        />
+        <section className="py-20 bg-cream">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <BlogDetailSkeleton />
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (blogError) {
+    const isNotFound = /404|not found/i.test(blogError);
+    if (isNotFound) {
+      return (
+        <div className="py-24 text-center bg-cream min-h-[60vh] flex flex-col items-center justify-center gap-4">
+          <h2 className="font-serif text-3xl font-bold text-secondary">
+            Article Not Found
+          </h2>
+          <p className="text-slate-600 font-sans">
+            We couldn't locate the blog post you requested.
+          </p>
+          <Link
+            to="/blogs"
+            className="bg-primary text-secondary px-6 py-2.5 rounded-full font-bold"
+          >
+            Back to Blog Listing
+          </Link>
+        </div>
+      );
+    }
+    return (
+      <div className="py-24 text-center bg-cream min-h-[60vh] flex flex-col items-center justify-center gap-4">
+        <h2 className="font-serif text-3xl font-bold text-secondary">
+          Unable to load this blog
+        </h2>
+        <p className="text-slate-600 font-sans">{blogError}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-primary text-secondary px-6 py-2.5 rounded-full font-bold"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   if (!blog) {
     return (
@@ -625,6 +723,13 @@ export default function BlogDetails() {
                                         setRepliesMap((prev) => ({
                                           ...prev,
                                           [comm._id]: r.data || [],
+                                        }));
+                                        setRepliesLoading(false);
+                                      })
+                                      .catch(() => {
+                                        setRepliesMap((prev) => ({
+                                          ...prev,
+                                          [comm._id]: [],
                                         }));
                                         setRepliesLoading(false);
                                       });

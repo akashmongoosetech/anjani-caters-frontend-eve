@@ -407,25 +407,24 @@ export async function getFAQs(lang: string): Promise<FAQItem[]> {
 }
 
 export async function getBlogs(lang: string): Promise<BlogPost[]> {
-  try {
-    const res = await api.getBlogs({ limit: 50 });
-    if (res.success && res.data) {
-      const list = extractList(res.data);
-      if (list.length > 0) return list.map(mapBlog);
-    }
-  } catch {}
-  return [];
+  const res = await api.getBlogs({ limit: 50 });
+  if (res.success && res.data) {
+    const list = extractList(res.data);
+    return list.map(mapBlog);
+  }
+  throw new Error(res.error || 'Failed to fetch blogs');
 }
 
 export async function getBlogComments(blogId: string): Promise<BlogComment[]> {
   const res = await api.getBlogComments(blogId);
-  return res.data || [];
+  if (res.success && res.data) {
+    return res.data;
+  }
+  throw new Error(res.error || 'Failed to fetch comments');
 }
 
 export async function getBlogBySlug(slug: string, lang: string): Promise<BlogPost | null> {
-  try {
-    const res = await api.getBlogBySlug(slug);
-    if (res.success && res.data) return mapBlog(res.data);
-  } catch {}
-  return null;
+  const res = await api.getBlogBySlug(slug);
+  if (res.success && res.data) return mapBlog(res.data);
+  throw new Error(res.error || 'Failed to fetch blog');
 }

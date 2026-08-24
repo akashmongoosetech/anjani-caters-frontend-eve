@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Search,
@@ -19,10 +19,11 @@ import { useLanguage } from "../context/LanguageContext";
 import { useAsyncData } from "../hooks/useAsyncData";
 import LazyImage from "../components/ui/LazyImage";
 import { formatDateTime } from "../components/DateTime";
+import { BlogSkeleton } from "../components/SkeletonGrid";
 
 export default function Blog() {
   const { language, t } = useLanguage();
-  const { data: blogs } = useAsyncData(
+  const { data: blogs, loading, error } = useAsyncData(
     () => getBlogs(language),
     [],
     [language],
@@ -30,6 +31,90 @@ export default function Blog() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  if (loading) {
+    return (
+      <div>
+        <SEO
+          title={t("blogTitle")}
+          description={t("blogSubtitle")}
+          urlPath="/blogs"
+        />
+        <PageBanner
+          title={t("blogTitle")}
+          breadcrumbs={[{ name: t("blog") }]}
+          backgroundImage="https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=1600&q=80"
+        />
+        <section className="py-20 bg-cream">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+              <div className="lg:col-span-8">
+                <BlogSkeleton count={3} />
+              </div>
+              <div className="lg:col-span-4 flex flex-col gap-8">
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                  <div className="w-20 h-5 bg-slate-200 rounded-lg mb-4" />
+                  <div className="w-full h-12 bg-slate-200 rounded-full" />
+                </div>
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                  <div className="w-16 h-5 bg-slate-200 rounded-lg mb-4" />
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="w-16 h-7 bg-slate-200 rounded-lg" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="py-24 text-center bg-cream min-h-[60vh] flex flex-col items-center justify-center gap-4">
+        <h2 className="font-serif text-3xl font-bold text-secondary">
+          Unable to load blogs
+        </h2>
+        <p className="text-slate-600 font-sans">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-primary text-secondary px-6 py-2 rounded-full font-bold text-xs cursor-pointer"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (!blogs.length) {
+    return (
+      <div>
+        <SEO
+          title={t("blogTitle")}
+          description={t("blogSubtitle")}
+          urlPath="/blogs"
+        />
+        <PageBanner
+          title={t("blogTitle")}
+          breadcrumbs={[{ name: t("blog") }]}
+          backgroundImage="https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=1600&q=80"
+        />
+        <section className="py-20 bg-cream">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-white rounded-3xl p-10 text-center border border-slate-100 shadow-sm">
+              <h3 className="font-serif text-2xl font-bold text-secondary mb-2">
+                No Blogs Available
+              </h3>
+              <p className="text-slate-600 font-sans">Check back later for new articles.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   const allTags = Array.from(new Set(blogs.flatMap((b) => b.tags)));
 
