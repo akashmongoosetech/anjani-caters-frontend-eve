@@ -77,7 +77,7 @@ export default function Footer() {
         <ArrowUp className="w-5 h-5" />
       </button>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="container-responsive">
         {/* Newsletter Section */}
         <div className="bg-[#102417] rounded-2xl p-6 sm:p-10 mb-16 border border-white/5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="max-w-md">

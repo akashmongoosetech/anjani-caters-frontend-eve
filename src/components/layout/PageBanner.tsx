@@ -13,19 +13,19 @@ export default function PageBanner({
   backgroundImage = 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80' 
 }: PageBannerProps) {
   return (
-    <div className="relative min-h-[320px] sm:min-h-[380px] flex items-center justify-center overflow-hidden py-14 sm:py-16">
-      {/* Background Image with luxury dark gradient overlay */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
-        style={{ backgroundImage: `url(${backgroundImage})` }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-[#102417]/85 to-secondary/95" />
+<div className="relative min-h-fluid-md flex items-center justify-center overflow-hidden py-fluid-lg">
+  {/* Background Image with luxury dark gradient overlay */}
+  <div 
+    className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
+    style={{ backgroundImage: `url(${backgroundImage})` }}
+  />
+  <div className="absolute inset-0 bg-gradient-to-b from-[#102417]/85 to-secondary/95" />
 
-      {/* Decorative Golden Graphic Overlay */}
-      <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-primary/10 to-transparent pointer-events-none" />
-      <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
+  {/* Decorative Golden Graphic Overlay */}
+  <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-primary/10 to-transparent pointer-events-none" />
+  <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-primary/10 to-transparent pointer-events-none" />
 
-      <div className="relative text-center px-4 max-w-4xl mx-auto z-10 animate-fade-in">
+  <div className="container-responsive relative text-center z-10 animate-fade-in">
         {/* Title */}
         <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-wide mb-4 capitalize">
           {title}
