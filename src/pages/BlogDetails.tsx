@@ -481,11 +481,11 @@ export default function BlogDetails() {
       />
 
       {/* Main Blog Post Section */}
-      <section className="py-20 bg-cream">
+      <section className="py-20 bg-cream overflow-x-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
             {/* LEFT MAIN ARTICLE - 8 Columns */}
-            <div className="lg:col-span-8 flex flex-col gap-8 text-left">
+            <div className="lg:col-span-8 flex flex-col gap-8 text-left min-w-0">
               {/* Top Navigation Row with Back Link & Copy Link */}
               <div className="flex flex-wrap justify-between items-center gap-4">
                 <Link
@@ -574,7 +574,7 @@ export default function BlogDetails() {
                           Article Summary
                         </h4>
                         <div
-                          className="font-sans text-slate-700 text-sm sm:text-base leading-relaxed prose prose-sm max-w-none prose-table:border-collapse prose-table:w-full prose-th:bg-slate-50 prose-th:border prose-th:border-slate-200 prose-th:p-2 prose-td:border prose-td:border-slate-200 prose-td:p-2 prose-th:text-xs prose-td:text-xs"
+                          className="font-sans text-slate-700 text-sm sm:text-base leading-relaxed prose prose-sm max-w-none break-words overflow-x-auto prose-table:border-collapse prose-table:w-full prose-th:bg-slate-50 prose-th:border prose-th:border-slate-200 prose-th:p-2 prose-td:border prose-td:border-slate-200 prose-td:p-2 prose-th:text-xs prose-td:text-xs"
                           dangerouslySetInnerHTML={{
                             __html: DOMPurify.sanitize(blog.excerpt),
                           }}
@@ -590,7 +590,7 @@ export default function BlogDetails() {
                     if (!stripped) return null;
                     return (
                       <div
-                        className="prose prose-sm sm:prose-base max-w-none prose-headings:font-serif prose-headings:text-secondary prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl prose-img:shadow-sm prose-blockquote:border-l-primary prose-blockquote:bg-linen/40 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-xl prose-table:border-collapse prose-table:w-full prose-th:bg-slate-50 prose-th:border prose-th:border-slate-200 prose-th:p-2 prose-td:border prose-td:border-slate-200 prose-td:p-2 prose-th:text-xs prose-td:text-xs"
+                        className="prose prose-sm sm:prose-base max-w-none break-words overflow-x-auto prose-headings:font-serif prose-headings:text-secondary prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl prose-img:shadow-sm prose-img:max-w-full prose-img:h-auto prose-blockquote:border-l-primary prose-blockquote:bg-linen/40 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-xl prose-table:border-collapse prose-table:w-full prose-th:bg-slate-50 prose-th:border prose-th:border-slate-200 prose-th:p-2 prose-td:border prose-td:border-slate-200 prose-td:p-2 prose-th:text-xs prose-td:text-xs"
                         dangerouslySetInnerHTML={{
                           __html: DOMPurify.sanitize(blog.content),
                         }}
