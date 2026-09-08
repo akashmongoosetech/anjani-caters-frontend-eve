@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown, Calendar, Phone, Mail, Instagram, Facebook, Globe } from 'lucide-react';
+import { Menu, X, ChevronDown, Calendar, Phone, Mail, Instagram, Facebook, Globe, Package, Briefcase, BookOpen, Users, Star, HelpCircle } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { navigationConfig, isPathActive, isDropdownActive } from '../../data/navigation';
 import { COMPANY_PHONE, COMPANY_EMAIL, FACEBOOK_URL, INSTAGRAM_URL } from '../../config/env';
@@ -240,26 +240,34 @@ export default function Header() {
                         />
                       </button>
 
-                      {/* Accordion Submenu */}
+                       {/* Accordion Submenu */}
                       <div
-                        className={`flex flex-col pl-4 gap-1 mt-1 transition-all duration-300 overflow-hidden ${
-                          isExpanded ? 'max-h-96 opacity-100 py-1' : 'max-h-0 opacity-0 py-0'
+                        className={`flex flex-col pl-4 gap-1.5 mt-1 transition-all duration-300 overflow-hidden ${
+                          isExpanded ? 'max-h-[500px] opacity-100 py-1' : 'max-h-0 opacity-0 py-0'
                         }`}
                       >
                         {item.dropdown.map((sub) => {
                           const isSubActive = isPathActive(pathname, sub.path);
+                          const SubIcon = sub.icon && ({ Package, Briefcase, BookOpen, Users, Star, HelpCircle } as Record<string, React.ElementType>)[sub.icon] 
+                            ? ({ Package, Briefcase, BookOpen, Users, Star, HelpCircle } as Record<string, React.ElementType>)[sub.icon] 
+                            : Package;
                           return (
                             <Link
                               key={sub.id}
                               to={sub.path}
                               onClick={() => setIsMobileMenuOpen(false)}
-                              className={`flex items-center justify-between font-sans text-sm font-medium py-2 px-3 rounded-lg transition-colors ${
+                              className={`flex items-center justify-between font-sans text-xs font-semibold py-2.5 px-3 rounded-xl transition-colors ${
                                 isSubActive
                                   ? 'bg-primary/20 text-primary font-bold'
-                                  : 'text-white/70 hover:text-white hover:bg-white/5'
+                                  : 'text-white/80 hover:text-white hover:bg-white/5'
                               }`}
                             >
-                              <span>{t(sub.nameKey)}</span>
+                              <div className="flex items-center gap-2.5">
+                                <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isSubActive ? 'bg-primary text-secondary' : 'bg-white/10 text-primary'}`}>
+                                  <SubIcon className="w-3.5 h-3.5" />
+                                </span>
+                                <span>{t(sub.nameKey)}</span>
+                              </div>
                               {isSubActive && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
                             </Link>
                           );

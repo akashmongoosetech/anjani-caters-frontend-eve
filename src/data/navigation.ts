@@ -2,8 +2,9 @@ export interface NavSubItem {
   id: string;
   nameKey: string;
   path: string;
-  iconName?: string;
-  descriptionKey?: string;
+  icon?: string;
+  desc?: string;
+  featured?: boolean;
 }
 
 export interface NavItem {
@@ -43,35 +44,51 @@ export const navigationConfig: NavItem[] = [
     id: 'explore',
     nameKey: 'explore',
     dropdown: [
-      {
-        id: 'packages',
-        nameKey: 'packages',
-        path: '/packages',
-      },
-      {
-        id: 'projects',
-        nameKey: 'projects',
-        path: '/projects',
-      },
+      // {
+      //   id: 'packages',
+      //   nameKey: 'packages',
+      //   path: '/packages',
+      //   icon: 'Package',
+      //   desc: 'Curated royal catering & event packages',
+      //   featured: true,
+      // },
       {
         id: 'blogs',
         nameKey: 'blog',
         path: '/blogs',
+        icon: 'BookOpen',
+        desc: 'Culinary trends and banqueting tips',
+        featured: true,
       },
+      
+      {
+        id: 'projects',
+        nameKey: 'projects',
+        path: '/projects',
+        icon: 'Briefcase',
+        desc: 'Portfolio of successful luxury events',
+      },
+      
       {
         id: 'team',
         nameKey: 'ourTeam',
         path: '/team',
+        icon: 'Users',
+        desc: 'Meet our master chefs and coordinators',
       },
       {
         id: 'testimonials',
         nameKey: 'testimonials',
         path: '/testimonials',
+        icon: 'Star',
+        desc: 'Read glowing reviews from happy hosts',
       },
       {
         id: 'faqs',
         nameKey: 'faqs',
         path: '/faqs',
+        icon: 'HelpCircle',
+        desc: 'Common questions about our catering',
       },
     ],
   },
