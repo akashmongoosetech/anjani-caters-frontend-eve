@@ -94,20 +94,19 @@ export default function Settings() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
         alert('File size exceeds 5MB limit.');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setProfilePicture(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
+      const uploadRes = await api.uploadFile(file);
+      if (uploadRes.success && uploadRes.data?.url) {
+        setProfilePicture(uploadRes.data.url);
+      } else {
+        alert(uploadRes.error || 'Failed to upload profile picture.');
+      }
     }
   };
 

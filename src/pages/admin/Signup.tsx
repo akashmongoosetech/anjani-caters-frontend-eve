@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { api } from '../../lib/api';
 import { 
   Eye, EyeOff, User as UserIcon, Mail, Phone, Lock, Camera, 
   ShieldCheck, ArrowRight, ShieldAlert, Check, X 
@@ -17,6 +18,7 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
   const [profilePicture, setProfilePicture] = useState('');
+  const [profileFile, setProfileFile] = useState<File | null>(null);
 
   // Passwords
   const [password, setPassword] = useState('');
@@ -53,13 +55,8 @@ export default function Signup() {
         alert('Only image files are permitted.');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setProfilePicture(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
+      setProfileFile(file);
+      setProfilePicture(URL.createObjectURL(file));
     }
   };
 
@@ -82,7 +79,7 @@ export default function Signup() {
       errors.mobile = 'Valid phone format (e.g. +1 (555) 019-2834) is required.';
     }
 
-    if (!profilePicture) {
+    if (!profilePicture && !profileFile) {
       errors.profilePicture = 'An admin profile picture is required for secure authentication logging.';
     }
 
@@ -101,12 +98,24 @@ export default function Signup() {
     setIsLoading(true);
     setErrorMessage('');
 
+    let finalProfilePic = profilePicture;
+    if (profileFile) {
+      const uploadRes = await api.uploadPublicFile(profileFile);
+      if (uploadRes.success && uploadRes.data?.url) {
+        finalProfilePic = uploadRes.data.url;
+      } else {
+        setIsLoading(false);
+        setErrorMessage(uploadRes.error || 'Failed to upload profile picture.');
+        return;
+      }
+    }
+
     const res = await signup({
       firstName,
       lastName,
       email,
       mobile,
-      profilePicture
+      profilePicture: finalProfilePic
     }, password);
 
     setIsLoading(false);
