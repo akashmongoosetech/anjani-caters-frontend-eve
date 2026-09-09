@@ -12,6 +12,7 @@ import {
 import { StatCardSkeleton } from '../../components/ui/Skeleton';
 import { api } from '../../lib/api';
 import { useLanguage } from '../../context/LanguageContext';
+import { getImageUrl } from '../../lib/avatar';
 import SEO from '../../components/SEO';
 
 const RECHARTS_BOOKINGS_DATA: any[] = [];
@@ -168,7 +169,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-4 sm:gap-5 text-center sm:text-left">
             {currentUser?.profilePicture ? (
               <img
-                src={currentUser.profilePicture}
+                src={getImageUrl(currentUser.profilePicture)}
                 alt={currentUser.firstName}
                 className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover ring-4 ring-primary/30 shadow-md"
                 referrerPolicy="no-referrer"

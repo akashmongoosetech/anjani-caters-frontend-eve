@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import SEO from '../../components/SEO';
 import LoadingButton from '../../components/ui/LoadingButton';
+import { getImageUrl } from '../../lib/avatar';
 
 export default function Settings() {
   const { currentUser, updateProfile } = useAdminAuth();
@@ -119,7 +120,7 @@ export default function Settings() {
           <div className="relative group">
             {profilePicture ? (
               <img
-                src={profilePicture}
+                src={getImageUrl(profilePicture)}
                 alt={firstName}
                 className="w-24 h-24 rounded-3xl object-cover ring-4 ring-primary/20 shadow-md transition-all group-hover:brightness-90"
                 referrerPolicy="no-referrer"

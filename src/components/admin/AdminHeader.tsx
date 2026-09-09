@@ -7,6 +7,7 @@ import {
   Search, Bell, User as UserIcon, Settings, LogOut, Menu, Globe,
   Calendar, Mail, ShoppingCart, Bot, Send, CheckCheck, X, ArrowRight 
 } from 'lucide-react';
+import { getImageUrl } from '../../lib/avatar';
 
 interface HeaderProps {
   title: string;
@@ -273,7 +274,7 @@ export default function AdminHeader({ title, setIsMobileOpen }: HeaderProps) {
           >
             {currentUser?.profilePicture ? (
               <img
-                src={currentUser.profilePicture}
+                src={getImageUrl(currentUser.profilePicture)}
                 alt={currentUser.firstName}
                 className="w-8.5 h-8.5 rounded-xl object-cover ring-2 ring-primary/20 shadow-sm"
                 referrerPolicy="no-referrer"
