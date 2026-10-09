@@ -7,7 +7,7 @@ const BACKEND_URL = (import.meta as any).env?.VITE_API_URL
   ? (import.meta as any).env.VITE_API_URL.replace('/api', '')
   : 'http://localhost:3000';
 
-export function connectSocket(role?: string): Socket {
+export function connectSocket(_role?: string): Socket {
   if (socket?.connected) return socket;
 
   const token = getAuthToken();
@@ -16,8 +16,9 @@ export function connectSocket(role?: string): Socket {
     transports: ['websocket', 'polling'],
     reconnectionDelay: 5000,
     reconnectionAttempts: 5,
-    query: {
-      role: role || 'Admin',
+    // Token via handshake auth (not URL query) so it isn't logged in URLs/proxies.
+    // Role is derived server-side from the verified JWT; no role is sent.
+    auth: {
       token: token || ''
     }
   });

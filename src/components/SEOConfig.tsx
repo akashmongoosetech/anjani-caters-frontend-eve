@@ -13,8 +13,8 @@ interface SEOData {
 
 const staticSEO: Record<string, SEOData> = {
   '/': {
-    title: 'Award-Winning Indian Wedding Catering in Chhatarpur, MP',
-    description: 'Anjani Catering & Events offers premium Indian wedding catering, grand celebration banquets, and bespoke live food stations for events in Chhatarpur, Madhya Pradesh, and across Bundelkhand.'
+    title: 'Wedding Catering in Chhatarpur, MP',
+    description: 'Anjani Catering & Events offers premium Indian wedding catering, celebration banquets, and live food stations in Chhatarpur, Madhya Pradesh, and across Bundelkhand.'
   },
   '/about': {
     title: 'About Our Indian Catering Heritage in Chhatarpur, MP',
@@ -55,6 +55,34 @@ const staticSEO: Record<string, SEOData> = {
   '/contact': {
     title: 'Contact Us | Indian Catering in Chhatarpur, MP',
     description: 'Contact Anjani Catering & Events for wedding and event catering inquiries in Chhatarpur, Madhya Pradesh. Request customized menus, get pricing, and plan your celebration.'
+  },
+  '/booking': {
+    title: 'Book Catering for Your Event | Chhatarpur, MP',
+    description: 'Reserve wedding and event catering in Chhatarpur, Madhya Pradesh. Check availability, request a quote, and plan menus with Anjani Catering & Events.'
+  },
+  '/gallery': {
+    title: 'Event Gallery | Weddings & Celebrations in MP',
+    description: 'Browse photos from royal weddings, receptions, and celebrations catered by Anjani Catering & Events across Chhatarpur and Madhya Pradesh.'
+  },
+  '/privacy': {
+    title: 'Privacy Policy',
+    description: 'How Anjani Catering & Events collects, uses, and protects personal information.'
+  },
+  '/terms': {
+    title: 'Terms & Conditions',
+    description: 'Terms governing use of the website, inquiries, bookings, and user content.'
+  },
+  '/cookies': {
+    title: 'Cookie Policy',
+    description: 'How we use cookies, local storage, and analytics — and how to manage consent.'
+  },
+  '/refund': {
+    title: 'Refund & Cancellation Policy',
+    description: 'How date changes, cancellations, deposits, and refunds work for catering bookings.'
+  },
+  '/disclaimer': {
+    title: 'Disclaimer',
+    description: 'General information disclaimer for menus, galleries, and blog content.'
   },
   '/admin-login': {
     title: 'Admin Login - Catering Management Panel',
@@ -125,18 +153,20 @@ export default function SEOConfig({ title: customTitle, description: customDescr
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={seoData.description} />
       <meta property="og:image" content={image} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:alt" content={fullTitle} />
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:type" content={type} />
       <meta property="og:site_name" content={siteName} />
       <meta property="og:locale" content={language === 'HI' ? 'hi_IN' : 'en_IN'} />
 
       <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:site" content="@AnjaniEvents" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={seoData.description} />
       <meta name="twitter:image" content={image} />
 
-      <link rel="alternate" href={`${baseUrl}/en${pathname}`} hrefLang="en" />
-      <link rel="alternate" href={`${baseUrl}/hi${pathname}`} hrefLang="hi" />
       <link rel="alternate" href={`${baseUrl}${pathname}`} hrefLang="x-default" />
     </Helmet>
   );

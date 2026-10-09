@@ -154,7 +154,7 @@ export default function Lightbox({
         >
           <img
             src={images[currentIndex]}
-            alt={`Showcase item ${currentIndex + 1}`}
+            alt={`${title} — photo ${currentIndex + 1} of ${images.length}`}
             referrerPolicy="no-referrer"
             style={{
               transform: `scale(${zoomScale}) rotate(${rotation}deg)`,
@@ -199,7 +199,7 @@ export default function Lightbox({
             >
               <img
                 src={img}
-                alt={`Thumbnail ${idx + 1}`}
+                alt={`${title} thumbnail ${idx + 1}`}
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"
               />

@@ -1004,7 +1004,7 @@ export default function BlogDetails() {
                           <div className="relative">
                             <img
                               src={profilePreview}
-                              alt="preview"
+                              alt="Comment image upload preview"
                               className="w-10 h-10 rounded-full object-cover border border-slate-200"
                             />
                             <button

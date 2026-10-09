@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAdminAuth } from '../../context/AdminAuthContext';
-import { 
-  Eye, EyeOff, Mail, Lock, ShieldAlert, Sparkles, Check, ArrowRight, BookOpen 
+import {
+  Eye, EyeOff, Mail, Lock, ShieldAlert, Sparkles, Check, ArrowRight
 } from 'lucide-react';
 import SEO from '../../components/SEO';
 import ForgotPasswordModal from '../../components/admin/ForgotPasswordModal';
@@ -60,13 +60,6 @@ export default function Login() {
     }
   };
 
-  const handlePrefillDemo = () => {
-    setEmailOrMobile('sales@anjanievents.in');
-    setPassword('Akash@9685');
-    setErrorMessage('');
-    setValidationErrors({});
-  };
-
   return (
     <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4 relative font-sans">
       <SEO 
@@ -91,28 +84,6 @@ export default function Login() {
             <p className="text-xs text-slate-400 font-semibold font-sans mt-0.5">
               Enter your credentials to manage operations and calendars.
             </p>
-          </div>
-        </div>
-
-        {/* Demo Prefill Quick Badge */}
-        <div className="mb-6 p-3 bg-primary/10 border border-primary/20 rounded-2xl text-left flex items-start gap-3">
-          <div className="p-1 rounded-lg bg-white/80 text-secondary shrink-0 mt-0.5">
-            <BookOpen className="w-4 h-4 text-secondary" />
-          </div>
-          <div className="text-xs font-semibold text-secondary space-y-1.5 flex-1">
-            <p>Reviewer Demo Credentials:</p>
-            <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-600">
-              <span className="bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">sales@anjanievents.in</span>
-              <span>/</span>
-              <span className="bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">Akash@9685</span>
-            </div>
-            <button
-              onClick={handlePrefillDemo}
-              className="text-[10px] font-extrabold text-secondary hover:underline cursor-pointer flex items-center gap-1 mt-1"
-            >
-              <span>Instant Prefill Details</span>
-              <ArrowRight className="w-3 h-3" />
-            </button>
           </div>
         </div>
 

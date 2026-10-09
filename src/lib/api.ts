@@ -34,13 +34,28 @@ export async function apiRequest<T = any>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
   try {
     const res = await fetch(`${BASE_URL}${endpoint}`, {
       ...options,
       headers,
+      signal: controller.signal,
     });
 
     const json = await res.json().catch(() => ({}));
+
+    if (res.status === 401) {
+      try {
+        localStorage.removeItem('anjani_admin_token');
+        sessionStorage.removeItem('anjani_admin_token');
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+          window.location.href = '/admin-login';
+        }
+      } catch {}
+      return { success: false, error: json.message || json.error || 'Session expired. Please login again.' };
+    }
 
     if (!res.ok) {
       return {
@@ -55,11 +70,17 @@ export async function apiRequest<T = any>(
       message: json.message,
     };
   } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      console.error(`[API Timeout] ${endpoint}`);
+      return { success: false, error: 'Request timed out. Please try again.' };
+    }
     console.error(`[API Client Error] ${endpoint}:`, err);
     return {
       success: false,
       error: err.message || 'Network communication error',
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

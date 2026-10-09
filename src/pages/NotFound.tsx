@@ -9,6 +9,7 @@ export default function NotFound() {
         title="Page Not Found" 
         description="The culinary pathway you requested does not exist. Let us guide you back to our exquisite catering selections and menus."
         urlPath="/404"
+        robots="noindex, nofollow"
       />
       <div className="absolute inset-0 bg-cover bg-center opacity-[0.03]" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=1600&q=80')` }} />
       <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />

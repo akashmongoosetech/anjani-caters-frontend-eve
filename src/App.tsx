@@ -12,6 +12,7 @@ import GuestRoute from './components/admin/GuestRoute';
 import { LanguageProvider } from './context/LanguageContext';
 import { ToastProvider } from './context/ToastContext';
 import SEOConfig from './components/SEOConfig';
+import CookieConsent from './components/CookieConsent';
 import LocalBusinessSchema from './components/LocalBusinessSchema';
 import PageTransition from './components/PageTransition';
 
@@ -32,17 +33,28 @@ const Blog = lazy(() => import('./pages/Blog'));
 const BlogDetails = lazy(() => import('./pages/BlogDetails'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Booking = lazy(() => import('./pages/Booking'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
+const Cookies = lazy(() => import('./pages/Cookies'));
+const Refund = lazy(() => import('./pages/Refund'));
+const Disclaimer = lazy(() => import('./pages/Disclaimer'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Login = lazy(() => import('./pages/admin/Login'));
 const Signup = lazy(() => import('./pages/admin/Signup'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
-// Helper Component: Auto scroll viewport to top on route navigate
+// Helper Component: Auto scroll viewport to top on route navigate + SPA page_view
 function ScrollToTop() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [pathname]);
+    try {
+      const gtag = (window as any).gtag;
+      if (typeof gtag === 'function' && !window.location.pathname.startsWith('/admin')) {
+        gtag('event', 'page_view', { page_path: pathname + search, page_location: window.location.href });
+      }
+    } catch {}
+  }, [pathname, search]);
   return null;
 }
 
@@ -53,16 +65,18 @@ function AppContent() {
 
   if (isAdminRoute) {
     return (
-      <main className="flex-grow">
+      <main id="main-content" className="flex-grow">
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:text-sm">Skip to content</a>
         <Suspense fallback={<LoadingSpinner fullPage={true} />}>
-          <AnimatePresence mode="wait">
-            <Routes location={location} key={location.pathname}>
-              <Route path="/admin-login" element={<GuestRoute><PageTransition><Login /></PageTransition></GuestRoute>} />
-              <Route path="/admin-signup" element={<GuestRoute><PageTransition><Signup /></PageTransition></GuestRoute>} />
-              <Route path="/admin/*" element={<PageTransition><Admin /></PageTransition>} />
-              <Route path="/*" element={<PageTransition><NotFound /></PageTransition>} />
-            </Routes>
-          </AnimatePresence>
+          {/* NOTE: no key={pathname} and no PageTransition around /admin/* so the
+              admin shell (layout, socket, notifications) stays mounted while
+              switching sections. Only the active section component swaps. */}
+          <Routes>
+            <Route path="/admin-login" element={<GuestRoute><PageTransition><Login /></PageTransition></GuestRoute>} />
+            <Route path="/admin-signup" element={<GuestRoute><PageTransition><Signup /></PageTransition></GuestRoute>} />
+            <Route path="/admin/*" element={<Admin />} />
+            <Route path="/*" element={<PageTransition><NotFound /></PageTransition>} />
+          </Routes>
         </Suspense>
       </main>
     );
@@ -72,10 +86,11 @@ function AppContent() {
     <div className="flex flex-col min-h-screen bg-cream selection:bg-primary/35 selection:text-secondary">
       
       {/* Sticky Header */}
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:text-sm">Skip to content</a>
       <Header />
 
       {/* Primary Content Router Stage with Suspense loading boundary */}
-      <main className="flex-grow">
+      <main id="main-content" className="flex-grow">
         <Suspense fallback={<LoadingSpinner fullPage={true} />}>
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
@@ -95,6 +110,11 @@ function AppContent() {
               <Route path="/blogs/:slug" element={<PageTransition><BlogDetails /></PageTransition>} />
               <Route path="/contact" element={<PageTransition><Contact /></PageTransition>} />
               <Route path="/booking" element={<PageTransition><Booking /></PageTransition>} />
+              <Route path="/privacy" element={<PageTransition><Privacy /></PageTransition>} />
+              <Route path="/terms" element={<PageTransition><Terms /></PageTransition>} />
+              <Route path="/cookies" element={<PageTransition><Cookies /></PageTransition>} />
+              <Route path="/refund" element={<PageTransition><Refund /></PageTransition>} />
+              <Route path="/disclaimer" element={<PageTransition><Disclaimer /></PageTransition>} />
               <Route path="/*" element={<PageTransition><NotFound /></PageTransition>} />
             </Routes>
           </AnimatePresence>
@@ -110,6 +130,7 @@ function AppContent() {
       {/* Floating Gemini AI Chatbot Widget */}
       <GeminiChatbot />
 
+      <CookieConsent />
     </div>
   );
 }

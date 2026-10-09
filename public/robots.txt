@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /admin-login
+Disallow: /admin-signup
+Disallow: /api/
 
 Sitemap: https://anjanievents.in/api/sitemap.xml

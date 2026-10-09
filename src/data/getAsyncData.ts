@@ -296,7 +296,7 @@ export async function getSubCategoriesByCategory(categoryId: string): Promise<Su
 
 export async function getMenuItems(lang: string): Promise<MenuItem[]> {
   try {
-    const res = await api.getMenuItems({ limit: 999, status: 'Active' });
+    const res = await api.getMenuItems({ limit: 100, status: 'Active' });
     if (res.success && res.data) {
       const list = extractList(res.data);
       if (list.length > 0) return list.map(mapMenuItem);
@@ -329,7 +329,7 @@ export async function getProjects(lang: string): Promise<Project[]> {
 
 export async function getGalleryItems(lang: string): Promise<GalleryItem[]> {
   try {
-    const res = await api.getGalleryItems({ limit: 999, status: 'Active', sortBy: 'displayOrder' });
+    const res = await api.getGalleryItems({ limit: 100, status: 'Active', sortBy: 'displayOrder' });
     if (res.success && res.data) {
       const list = extractList(res.data);
       if (list.length > 0) return list.map(mapGalleryItem);

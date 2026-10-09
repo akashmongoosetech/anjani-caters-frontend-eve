@@ -111,7 +111,7 @@ export default function AdminHeader({ title, setIsMobileOpen }: HeaderProps) {
               </button>
             </div>
           </div>
-          <button onClick={dismissToast} className="text-slate-400 hover:text-white p-1 cursor-pointer">
+          <button onClick={dismissToast} aria-label="Dismiss notification" className="text-slate-400 hover:text-white p-1 cursor-pointer">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -121,6 +121,7 @@ export default function AdminHeader({ title, setIsMobileOpen }: HeaderProps) {
       <div className="flex items-center gap-4">
         <button
           onClick={() => setIsMobileOpen(true)}
+          aria-label="Open navigation menu"
           className="p-1.5 text-slate-500 hover:text-secondary hover:bg-slate-50 rounded-xl lg:hidden shrink-0"
         >
           <Menu className="w-5.5 h-5.5" />
@@ -167,6 +168,8 @@ export default function AdminHeader({ title, setIsMobileOpen }: HeaderProps) {
         <div className="relative" ref={notifDropdownRef}>
           <button
             onClick={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
+            aria-label="Notifications"
+            aria-expanded={isNotifDropdownOpen}
             className="relative p-2 text-slate-500 hover:text-secondary hover:bg-slate-50 rounded-xl transition-all cursor-pointer focus:outline-none"
             title="System Notifications"
           >

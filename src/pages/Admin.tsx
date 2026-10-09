@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminLayout from '../components/admin/AdminLayout';
 import ProtectedRoute from '../components/admin/ProtectedRoute';
@@ -30,21 +30,37 @@ function AdminSocketHandler() {
   const { fetchNotifications } = useNotifications();
   const { toast } = useToast();
   const { currentUser } = useAdminAuth();
+  const role = currentUser?.role || 'Admin';
+
+  // Refs keep the subscription effect stable: context values/functions get new
+  // identities on unrelated renders, which must NOT reconnect the socket.
+  const fetchRef = useRef(fetchNotifications);
+  fetchRef.current = fetchNotifications;
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   useEffect(() => {
-    const role = currentUser?.role || 'Admin';
     const socket = connectSocket(role);
 
-    socket.on('notification:new', (notification) => {
-      fetchNotifications();
-      toast.info(notification.message, notification.title);
-    });
+    const onNew = (notification: any) => {
+      fetchRef.current();
+      toastRef.current.info(notification.message, notification.title);
+    };
+    socket.off('notification:new', onNew);
+    socket.on('notification:new', onNew);
 
     return () => {
-      socket.off('notification:new');
+      // Detach this handler but keep the shared connection alive for the shell.
+      socket.off('notification:new', onNew);
+    };
+  }, [role]);
+
+  // Disconnect only when the whole admin shell unmounts (e.g. logout/leave /admin).
+  useEffect(() => {
+    return () => {
       disconnectSocket();
     };
-  }, [fetchNotifications, toast, currentUser]);
+  }, []);
 
   return null;
 }
@@ -57,6 +73,7 @@ export default function Admin() {
         title="Admin Control Panel - Anjani Catering & Events" 
         description="Manage website content, bookings, orders, blogs, menu items, packages, subscribers, and gallery."
         urlPath="/admin"
+        robots="noindex, nofollow"
       />
       <Routes>
         {/* Outer security wrapper ensuring valid authentication token for all admin routes */}

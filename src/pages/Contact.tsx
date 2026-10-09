@@ -189,13 +189,14 @@ export default function Contact() {
                       <input
                         type="text"
                         placeholder="Rahul Sharma"
+                        aria-invalid={!!errors.name}
                         className={`w-full bg-cream border rounded-xl py-3 px-4 text-xs sm:text-sm focus:outline-none focus:border-primary text-secondary font-sans font-medium transition-colors ${
                           errors.name ? 'border-red-400 focus:border-red-500' : 'border-slate-100'
                         }`}
                         {...register('name')}
                       />
                       {errors.name && (
-                        <span className="text-red-500 font-sans text-[11px] font-semibold">
+                        <span role="alert" className="text-red-500 font-sans text-[11px] font-semibold">
                           {errors.name.message}
                         </span>
                       )}
@@ -209,13 +210,14 @@ export default function Contact() {
                       <input
                         type="email"
                         placeholder="rahul@example.com"
+                        aria-invalid={!!errors.email}
                         className={`w-full bg-cream border rounded-xl py-3 px-4 text-xs sm:text-sm focus:outline-none focus:border-primary text-secondary font-sans font-medium transition-colors ${
                           errors.email ? 'border-red-400 focus:border-red-500' : 'border-slate-100'
                         }`}
                         {...register('email')}
                       />
                       {errors.email && (
-                        <span className="text-red-500 font-sans text-[11px] font-semibold">
+                        <span role="alert" className="text-red-500 font-sans text-[11px] font-semibold">
                           {errors.email.message}
                         </span>
                       )}

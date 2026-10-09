@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
 
@@ -66,28 +66,19 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     [removeToast]
   );
 
-  const toastHelpers = {
-    success: useCallback(
-      (message: string, title?: string, duration?: number) =>
+  const toastHelpers = useMemo(
+    () => ({
+      success: (message: string, title?: string, duration?: number) =>
         showToast({ type: 'success', message, title: title || 'Success', duration }),
-      [showToast]
-    ),
-    error: useCallback(
-      (message: string, title?: string, duration?: number) =>
+      error: (message: string, title?: string, duration?: number) =>
         showToast({ type: 'error', message, title: title || 'Error', duration }),
-      [showToast]
-    ),
-    info: useCallback(
-      (message: string, title?: string, duration?: number) =>
+      info: (message: string, title?: string, duration?: number) =>
         showToast({ type: 'info', message, title: title || 'Notice', duration }),
-      [showToast]
-    ),
-    warning: useCallback(
-      (message: string, title?: string, duration?: number) =>
+      warning: (message: string, title?: string, duration?: number) =>
         showToast({ type: 'warning', message, title: title || 'Warning', duration }),
-      [showToast]
-    ),
-  };
+    }),
+    [showToast]
+  );
 
   return (
     <ToastContext.Provider

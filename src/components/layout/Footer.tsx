@@ -32,22 +32,22 @@ export default function Footer() {
 
     const emailToSubscribe = email;
     setEmail("");
-    setSubscribed(true);
-    toast.success(t("subscribed"), t("subscribe"));
 
     try {
       const result = await api.subscribeNewsletter(emailToSubscribe);
       if (!result.success) {
-        console.warn(
-          "Backend newsletter subscription returned non-ok status:",
-          result.error,
-        );
+        toast.error(result.error || t("subscribeFailed") || "Subscription failed. Please try again.");
+        return;
       }
+      setSubscribed(true);
+      toast.success(t("subscribed"), t("subscribe"));
     } catch (apiErr) {
       console.error(
         "Backend newsletter subscription failed (offline/fallback mode active):",
         apiErr,
       );
+      toast.error(t("subscribeFailed") || "Subscription failed. Please try again.");
+      return;
     }
 
     setTimeout(() => setSubscribed(false), 5000);
@@ -64,6 +64,14 @@ export default function Footer() {
     "https://images.unsplash.com/photo-1536935338788-846bb9981813?auto=format&fit=crop&w=150&q=80",
     "https://images.unsplash.com/photo-1516685018646-549198525c1b?auto=format&fit=crop&w=150&q=80",
     "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=150&q=80",
+  ];
+  const instagramAlts = [
+    "Royal Indian wedding buffet setup in Chhatarpur",
+    "Live chaat and appetizer counter at a celebration",
+    "Decorated wedding banquet hall ready for guests",
+    "Traditional thali service at a family function",
+    "Outdoor evening reception catering setup",
+    "Dessert and mithai display at a wedding",
   ];
 
   return (
@@ -273,7 +281,8 @@ export default function Footer() {
                 >
                   <img
                     src={src}
-                    alt="Instagram catering work"
+                    alt={instagramAlts[index] || "Catering event photo"}
+                    loading="lazy"
                     referrerPolicy="no-referrer"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
@@ -313,12 +322,21 @@ export default function Footer() {
             {t("copyright")}
           </p>
           <div className="flex items-center gap-6">
-            <a href="#" className="hover:text-white transition-colors">
+            <Link to="/privacy" className="hover:text-white transition-colors">
               {t("privacyPolicy")}
-            </a>
-            <a href="#" className="hover:text-white transition-colors">
+            </Link>
+            <Link to="/terms" className="hover:text-white transition-colors">
               {t("termsConditions")}
-            </a>
+            </Link>
+            <Link to="/cookies" className="hover:text-white transition-colors">
+              Cookies
+            </Link>
+            <Link to="/refund" className="hover:text-white transition-colors">
+              Refunds
+            </Link>
+            <Link to="/disclaimer" className="hover:text-white transition-colors">
+              Disclaimer
+            </Link>
           </div>
         </div>
       </div>

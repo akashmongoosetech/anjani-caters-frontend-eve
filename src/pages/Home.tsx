@@ -5,7 +5,6 @@ import {
   Heart, Briefcase, Sparkles, GlassWater, 
   Star, Check, Award, ArrowRight, ChevronDown, ChevronUp, CheckCircle2 
 } from 'lucide-react';
-import SEO from '../components/SEO';
 import ScrollReveal from '../components/ScrollReveal';
 import { getServices, getMenuItems, getPackages, getTestimonials, getFAQs } from '../data/getAsyncData';
 import { useAsyncData } from '../hooks/useAsyncData';
@@ -66,11 +65,6 @@ export default function Home() {
 
   return (
     <div className="overflow-hidden">
-      <SEO 
-        title={t('home:heroTitle')} 
-        description={t('home:heroSubtitle')}
-        urlPath="/"
-      />
       <Helmet>
         <meta name="google-site-verification" content="-i0mdQZYNBta7fE0yMyrjSlz0O4qcw1nQtKdmG1PiY8" />
       </Helmet>

@@ -125,7 +125,7 @@ export default function Services() {
   const pageDescription =
     (subcategorySlug ? selectedSubCategory?.description : selectedCategory?.description) ||
     t('servicesSubtitle');
-  const canonicalUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}${window.location.pathname}${window.location.search}`;
+  const canonicalUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/services`;
 
   const breadcrumbSchema = {
     '@context': 'https://schema.org',

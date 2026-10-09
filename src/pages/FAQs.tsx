@@ -87,6 +87,9 @@ export default function FAQs() {
               >
                 <button
                   onClick={() => setActiveFAQId(activeFAQId === faq.id ? null : faq.id)}
+                  aria-expanded={activeFAQId === faq.id}
+                  aria-controls={`faq-panel-${faq.id}`}
+                  id={`faq-button-${faq.id}`}
                   className="w-full flex items-center justify-between p-5 sm:p-6 text-left font-serif font-bold text-base sm:text-lg text-secondary hover:text-primary transition-colors focus:outline-none cursor-pointer"
                 >
                   <span className="flex items-start gap-3">
@@ -95,8 +98,8 @@ export default function FAQs() {
                   </span>
                   <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-300 ${activeFAQId === faq.id ? 'rotate-180 text-primary' : ''}`} />
                 </button>
-                <div className={`transition-all duration-300 overflow-hidden ${
-                  activeFAQId === faq.id ? 'max-h-64 opacity-100 border-t border-slate-50' : 'max-h-0 opacity-0'
+                <div id={`faq-panel-${faq.id}`} role="region" aria-labelledby={`faq-button-${faq.id}`} className={`transition-all duration-300 overflow-hidden ${
+                  activeFAQId === faq.id ? 'max-h-[1000px] opacity-100 border-t border-slate-50' : 'max-h-0 opacity-0'
                 }`}>
                   <p className="p-6 font-sans text-slate-600 text-xs sm:text-sm leading-relaxed font-medium bg-cream/30">
                     {faq.answer}

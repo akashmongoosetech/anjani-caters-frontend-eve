@@ -288,8 +288,8 @@ export default function UsersManagement() {
 
   const handleResetPasswordSubmit = async () => {
     if (!resettingId || isResetting) return;
-    if (newPassword && newPassword.length < 8) {
-      showToast('error', 'Password must be at least 8 characters');
+    if (!newPassword || newPassword.length < 8) {
+      showToast('error', 'Please enter a new password of at least 8 characters');
       return;
     }
     setIsResetting(true);

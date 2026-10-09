@@ -443,6 +443,7 @@ export default function Testimonials() {
             <StatCard end={18} suffix="+" label="Years of Service" icon={<Award className="w-5 h-5" />} />
             <StatCard end={500} suffix="+" label="Weddings Catered" icon={<Sparkles className="w-5 h-5" />} />
           </div>
+          <p className="text-center text-[11px] text-slate-400 mt-4">Figures as stated by the business, last reviewed Oct 2026 — update with verified counts before launch.</p>
         </div>
       </section>
 
@@ -767,7 +768,7 @@ export default function Testimonials() {
                 <div className="flex items-center gap-1.5 justify-center sm:justify-start">
                   <img 
                     src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" 
-                    alt="Google G" 
+                    alt="Google logo - verified business reviews"
                     className="w-5 h-5 shrink-0"
                   />
                   <span className="font-sans text-sm font-extrabold text-slate-800 tracking-tight">Google Business Reviews</span>
