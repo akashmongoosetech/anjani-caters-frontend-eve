@@ -14,6 +14,7 @@ export default function Privacy() {
             <li>Contact & booking details you submit: name, email, phone, event date, guest count, venue/city, message, uploaded files (testimonial/blog avatars).</li>
             <li>Newsletter email when you subscribe via the footer form.</li>
             <li>Chatbot conversations (messages you send to plan events) stored to fulfil inquiries.</li>
+            <li>Visit records: pages you view, approximate city-level location derived from your IP address (via IPstack), browser type, and referrer. Raw records including IP are kept for 90 days, then automatically deleted. IPs are never used to identify you personally.</li>
             <li>Technical data: IP address, device/browser info via server logs, rate-limiting, and analytics (Google Analytics + Tag Manager) where consent is given.</li>
             <li>Admin account data (name, email, mobile) for authentication; stored preferences (language, consent choice) in localStorage.</li>
           </ul>

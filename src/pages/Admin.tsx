@@ -24,6 +24,7 @@ import Testimonials from './admin/Testimonials';
 import Settings from './admin/Settings';
 import AIChatbotInquiries from './admin/AIChatbotInquiries';
 import Notifications from './admin/Notifications';
+import Locations from './admin/Locations';
 import SEO from '../components/SEO';
 
 function AdminSocketHandler() {
@@ -87,6 +88,7 @@ export default function Admin() {
             <Route path="contacts" element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin', 'Manager', 'Employee']}><Contacts /></ProtectedRoute>} />
             <Route path="orders" element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin', 'Manager', 'Employee']}><Orders /></ProtectedRoute>} />
             <Route path="notifications" element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin', 'Manager']}><Notifications /></ProtectedRoute>} />
+            <Route path="locations" element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin', 'Manager', 'Employee']}><Locations /></ProtectedRoute>} />
 
             {/* Operations & Management Modules */}
             <Route path="bookings" element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin', 'Manager']}><Bookings /></ProtectedRoute>} />

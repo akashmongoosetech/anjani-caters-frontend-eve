@@ -21,6 +21,7 @@ export default function Cookies() {
             <li><strong>Strictly necessary:</strong> admin auth token (localStorage), consent choice (<code>cookie_consent</code>), language (<code>app_language</code>).</li>
             <li><strong>Functional/offline:</strong> chatbot session drafts and inquiry fallbacks so forms survive reloads.</li>
             <li><strong>Analytics (only after you accept):</strong> Google Analytics (G-C1M79F0B9Q) and Tag Manager (GTM-M27HQ7B7) for aggregate traffic measurement.</li>
+            <li><strong>Visit tracking (first-party, always on):</strong> each public page view records the page path, approximate city-level location from your IP (via IPstack), and browser type. No advertising cookies are set. Raw records auto-delete after 90 days; you may request earlier deletion at sales@anjanievents.in.</li>
           </ul>
           <h2>Managing consent</h2>
           <p>Use the cookie banner to Accept or Decline analytics. Declining blocks analytics loading. You can reset your choice anytime:</p>

@@ -19,6 +19,7 @@ export default function AdminLayout() {
   const getPageTitle = () => {
     const path = location.pathname;
     if (path.includes('/dashboard')) return 'Operations Dashboard';
+    if (path.includes('/locations')) return 'Visitor Locations';
     if (path.includes('/bookings')) return 'Event Bookings & Holds';
     if (path.includes('/ai-bookings')) return 'AI Concierge Center';
     if (path.includes('/orders')) return 'Catering Orders';

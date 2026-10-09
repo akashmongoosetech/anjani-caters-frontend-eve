@@ -547,4 +547,20 @@ export const api = {
 
   submitCateringOrder: (payload: any) =>
     apiRequest('/order', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Visitor location tracking
+  trackVisit: (payload: { pagePath: string; referrer?: string; sessionId?: string; eventId?: string; website?: string }) =>
+    apiRequest('/visitors/track', { method: 'POST', body: JSON.stringify(payload) }),
+
+  getVisits: (params?: Record<string, any>) =>
+    apiRequest(`/visitors${buildQueryString(params)}`),
+
+  getVisitStats: () =>
+    apiRequest('/visitors/stats'),
+
+  getVisitById: (id: string) =>
+    apiRequest(`/visitors/${id}`),
+
+  deleteVisit: (id: string) =>
+    apiRequest(`/visitors/${id}`, { method: 'DELETE' }),
 };

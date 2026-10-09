@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { 
   LayoutDashboard, Users, Mail, Calendar, ShoppingBag, 
   FileText, MessageSquare, UtensilsCrossed, Package, Send, Image as ImageIcon, Settings, 
-  ChevronLeft, ChevronRight, X, Sparkles, ShieldCheck, Bell, Briefcase, FolderOpen, Layers, Star
+  ChevronLeft, ChevronRight, X, Sparkles, ShieldCheck, Bell, Briefcase, FolderOpen, Layers, Star, MapPin
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -39,6 +39,7 @@ export default function AdminSidebar({
   const navItems: NavItem[] = [
     { key: 'admin:dashboard', name: t('admin:dashboard'), path: '/admin/dashboard', icon: LayoutDashboard, roles: ['Super Admin', 'Admin', 'Manager', 'Employee'] },
     { key: 'admin:notifications', name: t('admin:notifications'), path: '/admin/notifications', icon: Bell, roles: ['Super Admin', 'Admin', 'Manager'] },
+    { key: 'admin:location', name: t('admin:location'), path: '/admin/locations', icon: MapPin, roles: ['Super Admin', 'Admin', 'Manager', 'Employee'] },
     { key: 'admin:users', name: t('admin:users'), path: '/admin/users', icon: Users, roles: ['Super Admin', 'Admin'] },
     { key: 'admin:contacts', name: t('admin:contacts'), path: '/admin/contacts', icon: Mail, roles: ['Super Admin', 'Admin', 'Manager', 'Employee'] },
     { key: 'admin:bookings', name: t('admin:bookings'), path: '/admin/bookings', icon: Calendar, roles: ['Super Admin', 'Admin', 'Manager'] },

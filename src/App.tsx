@@ -13,6 +13,7 @@ import { LanguageProvider } from './context/LanguageContext';
 import { ToastProvider } from './context/ToastContext';
 import SEOConfig from './components/SEOConfig';
 import CookieConsent from './components/CookieConsent';
+import { trackPageView } from './lib/visitorTracking';
 import LocalBusinessSchema from './components/LocalBusinessSchema';
 import PageTransition from './components/PageTransition';
 
@@ -43,7 +44,7 @@ const Login = lazy(() => import('./pages/admin/Login'));
 const Signup = lazy(() => import('./pages/admin/Signup'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
-// Helper Component: Auto scroll viewport to top on route navigate + SPA page_view
+// Helper Component: Auto scroll viewport to top on route navigate + SPA page_view + visitor beacon
 function ScrollToTop() {
   const { pathname, search } = useLocation();
   useEffect(() => {
@@ -54,6 +55,8 @@ function ScrollToTop() {
         gtag('event', 'page_view', { page_path: pathname + search, page_location: window.location.href });
       }
     } catch {}
+    // Visitor location beacon: public pages only, fire-and-forget, never blocks nav.
+    trackPageView(pathname + search);
   }, [pathname, search]);
   return null;
 }
