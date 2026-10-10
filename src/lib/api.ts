@@ -516,7 +516,7 @@ export const api = {
     apiRequest('/faqs'),
 
   // Gemini AI
-  sendGeminiChat: (payload: { messages: Array<{ role: string; content: string }>; sessionId?: string; clientName?: string }) =>
+  sendGeminiChat: (payload: { messages: Array<{ role: string; content: string }>; sessionId?: string; clientName?: string; uiLanguage?: string }) =>
     apiRequest('/gemini/chat', { method: 'POST', body: JSON.stringify(payload) }),
 
   generateDescription: (prompt: string) =>

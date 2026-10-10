@@ -91,7 +91,10 @@ export default function GeminiChatbot() {
       return true;
     }
   });
-  const [voiceLangOverride, setVoiceLangOverride] = useState<"auto" | SpeechLocale>("auto");
+  // Server-resolved conversation language (hi/en/hinglish). Drives both
+  // recognition and synthesis so written and spoken answers always match.
+  // null = not yet resolved this session → fall back to the site language.
+  const [resolvedLang, setResolvedLang] = useState<"hi" | "en" | "hinglish" | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
 
@@ -101,7 +104,9 @@ export default function GeminiChatbot() {
   autoSpeakRef.current = autoSpeak;
 
   const siteLocale: SpeechLocale = language === "HI" ? "hi-IN" : "en-IN";
-  const voiceLocale: SpeechLocale = voiceLangOverride === "auto" ? siteLocale : voiceLangOverride;
+  // Resolved preference wins; hinglish/unresolved keep per-chunk detection.
+  const voiceLocale: SpeechLocale =
+    resolvedLang === "hi" ? "hi-IN" : resolvedLang === "en" ? "en-IN" : siteLocale;
 
   const showVoiceNotice = (text: string) => {
     setVoiceNotice(text);
@@ -125,6 +130,7 @@ export default function GeminiChatbot() {
 
   const voice = useVoiceChat({
     locale: voiceLocale,
+    allowPerChunkVoice: resolvedLang === null || resolvedLang === "hinglish",
     onFinalTranscript: (text) => {
       // Editable + confirm: transcript lands in the input, user presses send.
       setInputValue(text);
@@ -409,11 +415,18 @@ export default function GeminiChatbot() {
         const result = await api.sendGeminiChat({
           messages: payloadMessages,
           sessionId,
-          clientName: formData.name || undefined
+          clientName: formData.name || undefined,
+          // Fallback hint only — the server resolves the real preference from
+          // explicit instructions, message language, and conversation context.
+          uiLanguage: language === "HI" ? "hi" : "en",
         });
 
         if (result.success && result.data) {
           responseText = result.data.response;
+          const resolved = result.data.language;
+          if (resolved === "hi" || resolved === "en" || resolved === "hinglish") {
+            setResolvedLang(resolved);
+          }
         } else {
           throw new Error("Failure contacting backend API");
         }
@@ -667,7 +680,7 @@ export default function GeminiChatbot() {
 
   // Keep the speaking indicator in sync without re-reading on re-renders.
   useEffect(() => {
-    if (voice.status === "idle") setSpeakingId(null);
+    if (voice.status === "idle" || voice.status === "completed") setSpeakingId(null);
   }, [voice.status]);
 
   const toggleVoiceMode = () => {
@@ -691,14 +704,26 @@ export default function GeminiChatbot() {
     } catch (_) {}
   };
 
+  const lastSpokenCandidate = (() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (m.role === "model" && !m.id.includes("-error") && m.content.trim()) return m;
+    }
+    return null;
+  })();
+
   const voiceStatusText =
     voice.status === "listening"
       ? t("chatbot:listening")
       : voice.status === "processing"
         ? t("chatbot:processingVoice")
         : voice.status === "speaking"
-          ? t("chatbot:speaking")
-          : "";
+          ? `${t("chatbot:speaking")}${voice.progress.total > 1 ? ` (${voice.progress.index + 1}/${voice.progress.total})` : ""}`
+          : voice.status === "paused"
+            ? t("chatbot:paused")
+            : voice.status === "completed"
+              ? t("chatbot:completed")
+              : "";
 
   return (
     <div id="gemini-chatbot-container" className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none print:hidden">
@@ -1194,21 +1219,45 @@ export default function GeminiChatbot() {
                     {autoSpeak ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
                     {t("chatbot:autoSpeak")}
                   </button>
-                  <div className="flex items-center rounded-full border border-slate-200 overflow-hidden" role="group" aria-label={t("chatbot:voiceLanguage")}>
-                    {(["auto", "en-IN", "hi-IN"] as const).map((opt) => (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => setVoiceLangOverride(opt)}
-                        aria-pressed={voiceLangOverride === opt}
-                        className={`px-2 py-1.5 text-[10px] font-bold transition-all cursor-pointer ${
-                          voiceLangOverride === opt ? "bg-secondary text-white" : "text-slate-500 hover:bg-slate-50"
-                        }`}
-                      >
-                        {opt === "auto" ? "Auto" : opt === "en-IN" ? "EN" : "HI"}
-                      </button>
-                    ))}
-                  </div>
+                  {voice.status === "speaking" && (
+                    <button
+                      type="button"
+                      onClick={voice.pausePlayback}
+                      title={t("chatbot:pause")}
+                      aria-label={t("chatbot:pause")}
+                      className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 hover:border-primary/40 transition-all cursor-pointer"
+                    >
+                      <Square className="w-3 h-3 fill-current" />
+                      {t("chatbot:pause")}
+                    </button>
+                  )}
+                  {voice.status === "paused" && (
+                    <button
+                      type="button"
+                      onClick={voice.resumePlayback}
+                      title={t("chatbot:resume")}
+                      aria-label={t("chatbot:resume")}
+                      className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-full border border-primary/40 bg-primary/15 text-secondary transition-all cursor-pointer"
+                    >
+                      <Mic className="w-3 h-3" />
+                      {t("chatbot:resume")}
+                    </button>
+                  )}
+                  {(voice.status === "idle" || voice.status === "completed" || voice.status === "error") && lastSpokenCandidate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSpeakingId(lastSpokenCandidate.id);
+                        voice.speakReply(lastSpokenCandidate.content);
+                      }}
+                      title={t("chatbot:replay")}
+                      aria-label={t("chatbot:replay")}
+                      className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 hover:border-primary/40 transition-all cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      {t("chatbot:replay")}
+                    </button>
+                  )}
                 </>
               )}
               {voiceStatusText && (

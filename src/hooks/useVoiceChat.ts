@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   SpeechLocale,
   createRecognition,
+  detectChunkLocale,
   isSpeechRecognitionSupported,
   isSpeechSynthesisSupported,
   speakText,
+  splitSpokenText,
   stopSpeaking,
 } from '../lib/speech';
 
@@ -14,6 +16,8 @@ export type VoiceStatus =
   | 'listening'
   | 'processing'
   | 'speaking'
+  | 'paused'
+  | 'completed'
   | 'error';
 
 export interface VoiceError {
@@ -23,6 +27,9 @@ export interface VoiceError {
 
 interface UseVoiceChatOptions {
   locale: SpeechLocale;
+  /** When false, every chunk uses `locale` (resolved language). When true
+      (unresolved/hinglish), per-chunk script detection may vary the voice. */
+  allowPerChunkVoice?: boolean;
   /** Called once per finalized transcript (never empty, never twice). */
   onFinalTranscript: (text: string) => void;
   onError?: (error: VoiceError) => void;
@@ -35,13 +42,16 @@ interface SpeakReplyOptions {
 
 // idle -> requesting_permission -> listening -> processing -> speaking -> idle
 // listening -> idle when cancelled; any active state -> error on failure.
-export function useVoiceChat({ locale, onFinalTranscript, onError }: UseVoiceChatOptions) {
+export function useVoiceChat({ locale, allowPerChunkVoice, onFinalTranscript, onError }: UseVoiceChatOptions) {
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [voiceError, setVoiceError] = useState<VoiceError | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const speakSessionRef = useRef(0);
+  // Active playback queue: ordered chunks + position + per-chunk retry budget.
+  const queueRef = useRef<{ chunks: string[]; index: number; retries: number; baseLocale: SpeechLocale } | null>(null);
+  const [progress, setProgress] = useState({ index: 0, total: 0 });
   const submittedRef = useRef<string | null>(null);
   const statusRef = useRef<VoiceStatus>('idle');
   const localeRef = useRef<SpeechLocale>(locale);
@@ -49,6 +59,8 @@ export function useVoiceChat({ locale, onFinalTranscript, onError }: UseVoiceCha
 
   const callbacksRef = useRef({ onFinalTranscript, onError });
   callbacksRef.current = { onFinalTranscript, onError };
+  const perChunkRef = useRef(allowPerChunkVoice);
+  perChunkRef.current = allowPerChunkVoice;
 
   const setStatusBoth = useCallback((next: VoiceStatus) => {
     statusRef.current = next;
@@ -79,8 +91,28 @@ export function useVoiceChat({ locale, onFinalTranscript, onError }: UseVoiceCha
 
   const stopPlayback = useCallback(() => {
     speakSessionRef.current += 1; // invalidate pending onend/onerror callbacks
+    queueRef.current = null;
+    setProgress({ index: 0, total: 0 });
     stopSpeaking();
-    if (statusRef.current === 'speaking') setStatusBoth('idle');
+    if (statusRef.current === 'speaking' || statusRef.current === 'paused') {
+      setStatusBoth('idle');
+    }
+  }, [setStatusBoth]);
+
+  const pausePlayback = useCallback(() => {
+    if (statusRef.current !== 'speaking') return;
+    try {
+      window.speechSynthesis.pause();
+      setStatusBoth('paused');
+    } catch {}
+  }, [setStatusBoth]);
+
+  const resumePlayback = useCallback(() => {
+    if (statusRef.current !== 'paused') return;
+    try {
+      window.speechSynthesis.resume();
+      setStatusBoth('speaking');
+    } catch {}
   }, [setStatusBoth]);
 
   const startListening = useCallback(() => {
@@ -185,6 +217,8 @@ export function useVoiceChat({ locale, onFinalTranscript, onError }: UseVoiceCha
   }, [setStatusBoth, teardownRecognition]);
 
   const markIdle = useCallback(() => {
+    queueRef.current = null;
+    setProgress({ index: 0, total: 0 });
     setInterimTranscript('');
     setStatusBoth('idle');
   }, [setStatusBoth]);
@@ -198,23 +232,73 @@ export function useVoiceChat({ locale, onFinalTranscript, onError }: UseVoiceCha
       if (!text || !text.trim()) {
         if (!opts.allowEmpty) return;
       }
+      // Divide the COMPLETE answer into ordered chunks first — nothing is
+      // dropped: splitSpokenText preserves every word (see verifySpokenChunks).
+      const chunks = splitSpokenText(text);
+      if (chunks.length === 0) return;
       stopSpeaking();
       const session = speakSessionRef.current + 1;
       speakSessionRef.current = session;
+      queueRef.current = { chunks, index: 0, retries: 0, baseLocale: localeRef.current };
+      setProgress({ index: 0, total: chunks.length });
       setStatusBoth('speaking');
-      speakText(text, {
-        language: localeRef.current,
+      speakChunk(0, session);
+    },
+    // speakChunk is ref-stable (defined below via function hoisting-safe ref).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fail, setStatusBoth],
+  );
+
+  // Speaks queueRef chunk i with per-chunk voice; chains via onend only —
+  // never queues multiple utterances at once (browser behavior varies).
+  const speakChunk = useCallback(
+    (index: number, session: number) => {
+      const queue = queueRef.current;
+      if (!queue || session !== speakSessionRef.current) return; // stale session
+      queue.index = index;
+      setProgress({ index, total: queue.chunks.length });
+      const chunk = queue.chunks[index];
+      // Resolved languages stay on one voice (no mid-answer switching);
+      // unresolved/hinglish keeps per-chunk script detection as fallback.
+      const chunkLocale = perChunkRef.current
+        ? detectChunkLocale(chunk, queue.baseLocale)
+        : queue.baseLocale;
+      speakText(chunk, {
+        language: chunkLocale,
         sessionId: session,
+        cancelFirst: false, // never cancel mid-queue; only new sessions cancel
         onStart: (sid) => {
-          if (sid === speakSessionRef.current) setStatusBoth('speaking');
+          if (sid === speakSessionRef.current && statusRef.current !== 'paused') {
+            setStatusBoth('speaking');
+          }
         },
         onEnd: (sid) => {
-          if (sid === speakSessionRef.current && statusRef.current === 'speaking') {
-            setStatusBoth('idle');
+          if (sid !== speakSessionRef.current) return; // stale session
+          const q = queueRef.current;
+          if (!q) return;
+          if (statusRef.current === 'paused') return; // resume() re-fires onend
+          if (index + 1 < q.chunks.length) {
+            speakChunk(index + 1, session);
+          } else {
+            queueRef.current = null;
+            setProgress({ index: q.chunks.length, total: q.chunks.length });
+            setStatusBoth('completed');
           }
         },
         onError: (message, sid) => {
           if (sid !== speakSessionRef.current) return; // stale session
+          const q = queueRef.current;
+          // User Stop/Replay already moved on: stay silent.
+          if (!q || statusRef.current === 'idle') return;
+          // 'canceled'/'interrupted' arrive via onEnd path in speakText; any
+          // other engine error retries THIS chunk once, then surfaces error
+          // (never restarts from chunk 0, never loops forever).
+          if (q.retries < 1) {
+            q.retries += 1;
+            window.setTimeout(() => speakChunk(index, session), 250);
+            return;
+          }
+          queueRef.current = null;
           fail('synthesis', message);
         },
       });
@@ -245,6 +329,7 @@ export function useVoiceChat({ locale, onFinalTranscript, onError }: UseVoiceCha
 
   return {
     status,
+    progress,
     interimTranscript,
     voiceError,
     sttSupported: isSpeechRecognitionSupported(),
@@ -255,6 +340,8 @@ export function useVoiceChat({ locale, onFinalTranscript, onError }: UseVoiceCha
     markIdle,
     speakReply,
     stopPlayback,
+    pausePlayback,
+    resumePlayback,
     clearError: useCallback(() => {
       setVoiceError(null);
       if (statusRef.current === 'error') setStatusBoth('idle');
