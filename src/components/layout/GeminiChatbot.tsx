@@ -194,7 +194,7 @@ export default function GeminiChatbot() {
       const welcome: Message = {
         id: "welcome-msg",
         role: "model",
-        content: "Namaste! 🙏 Welcome to Anjani Catering & Events's digital lounge. I'm your AI Culinary Concierge and Banquet Planner.\n\nI can assist you with planning wedding catering, corporate gala dinners, birthday parties, customized menu designs, regional Indian cuisines, pricing, and reservation booking.\n\nHow may I help you craft the perfect celebration today?",
+        content: "Namaste! 🙏 Welcome to Anjani Catering & Events's digital lounge. I'm your Anjani Concierge and Banquet Planner.\n\nI can assist you with planning wedding catering, corporate gala dinners, birthday parties, customized menu designs, regional Indian cuisines, pricing, and reservation booking.\n\nHow may I help you craft the perfect celebration today?",
         timestamp: new Date(),
       };
       setMessages([welcome]);
@@ -257,7 +257,7 @@ export default function GeminiChatbot() {
     }
 
     if (text.includes("hello") || text.includes("hi") || text.includes("hey") || text.includes("welcome") || text.includes("namaste") || text.includes("greet")) {
-      return "Namaste! 🙏 I am your AI Culinary Concierge. I can help you explore our award-winning menu catalogs, design custom Jain or royal menus, calculate banquet estimates, and book dates for your upcoming celebration. What style of catering can I inspire you with today?";
+      return "Namaste! 🙏 I am your Anjani Concierge. I can help you explore our award-winning menu catalogs, design custom Jain or royal menus, calculate banquet estimates, and book dates for your upcoming celebration. What style of catering can I inspire you with today?";
     }
 
     // Default polite response guiding them to the form
@@ -624,7 +624,7 @@ export default function GeminiChatbot() {
       const welcome: Message = {
         id: "welcome-msg",
         role: "model",
-        content: "Namaste! 🙏 Welcome back. I'm your AI Culinary Concierge. How may I assist you with planning your menu packages, wedding banquets, or live catering stations today?",
+        content: "Namaste! 🙏 Welcome back. I'm your Anjani Concierge. How may I assist you with planning your menu packages, wedding banquets, or live catering stations today?",
         timestamp: new Date(),
       };
       setMessages([welcome]);
@@ -643,7 +643,7 @@ export default function GeminiChatbot() {
     const welcome: Message = {
       id: "welcome-msg",
       role: "model",
-      content: "Namaste! 🙏 I've initialized a fresh, new session for you. I am your AI Banquet Consultant. Ask me anything about our regional Indian specialties, royal dinner stations, or booking capacities!",
+      content: "Namaste! 🙏 I've initialized a fresh, new session for you. I am your Anjani Concierge and Banquet Planner. Ask me anything about our regional Indian specialties, royal dinner stations, or booking capacities!",
       timestamp: new Date(),
     };
     setMessages([welcome]);
@@ -1329,7 +1329,7 @@ export default function GeminiChatbot() {
             transition={{ delay: 1 }}
             className="absolute right-16 top-2 bg-secondary text-primary border border-primary/20 shadow-lg py-1.5 px-3 rounded-xl rounded-tr-none whitespace-nowrap text-[10px] font-sans font-bold uppercase tracking-wider"
           >
-            Ask AI Concierge ✨
+            Ask Anjani Concierge ✨
           </motion.div>
         )}
       </div>
