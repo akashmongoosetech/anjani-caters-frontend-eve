@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { 
   Sparkles, X, Send, Bot, User, Trash2, ArrowRight, Copy, Check, Calendar, 
-  Users, DollarSign, MapPin, ClipboardList, RefreshCw, MessageSquare, Volume2, VolumeX
+  Users, DollarSign, MapPin, ClipboardList, RefreshCw, MessageSquare, Volume2, VolumeX,
+  Mic, Square
 } from "lucide-react";
 import DOMPurify from 'dompurify';
 import { motion, AnimatePresence } from "motion/react";
 import { useLanguage } from "../../context/LanguageContext";
 import { api } from "../../lib/api";
+import { useVoiceChat } from "../../hooks/useVoiceChat";
+import { SpeechLocale } from "../../lib/speech";
 
 interface Message {
   id: string;
@@ -32,7 +36,8 @@ interface BookingFormData {
 }
 
 export default function GeminiChatbot() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const pathname = useLocation().pathname;
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -69,6 +74,85 @@ export default function GeminiChatbot() {
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // ---- Voice interaction state (Modes B/C/D; text chat untouched) ----
+  const [voiceMode, setVoiceMode] = useState(() => {
+    try {
+      return localStorage.getItem("eveng_chatbot_voice_mode") === "true";
+    } catch (_) {
+      return false;
+    }
+  });
+  const [autoSpeak, setAutoSpeak] = useState(() => {
+    try {
+      const raw = localStorage.getItem("eveng_chatbot_autospeak");
+      return raw === null ? true : raw === "true";
+    } catch (_) {
+      return true;
+    }
+  });
+  const [voiceLangOverride, setVoiceLangOverride] = useState<"auto" | SpeechLocale>("auto");
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+
+  const voiceModeRef = useRef(voiceMode);
+  voiceModeRef.current = voiceMode;
+  const autoSpeakRef = useRef(autoSpeak);
+  autoSpeakRef.current = autoSpeak;
+
+  const siteLocale: SpeechLocale = language === "HI" ? "hi-IN" : "en-IN";
+  const voiceLocale: SpeechLocale = voiceLangOverride === "auto" ? siteLocale : voiceLangOverride;
+
+  const showVoiceNotice = (text: string) => {
+    setVoiceNotice(text);
+    window.setTimeout(() => {
+      setVoiceNotice((prev) => (prev === text ? null : prev));
+    }, 4500);
+  };
+
+  const voiceErrorText = (kind: string): string => {
+    switch (kind) {
+      case "unsupported":
+        return t("chatbot:speechNotSupported");
+      case "mic-blocked":
+        return t("chatbot:speechMicBlocked");
+      case "no-speech":
+        return t("chatbot:speechNoSpeech");
+      default:
+        return t("chatbot:speechError");
+    }
+  };
+
+  const voice = useVoiceChat({
+    locale: voiceLocale,
+    onFinalTranscript: (text) => {
+      // Editable + confirm: transcript lands in the input, user presses send.
+      setInputValue(text);
+    },
+    onError: (err) => {
+      showVoiceNotice(voiceErrorText(err.kind));
+    },
+  });
+
+  const voiceActiveRef = useRef(false);
+  voiceActiveRef.current =
+    voiceMode && (voice.status === "listening" || voice.status === "speaking" || voice.status === "processing");
+
+  // Stop any voice activity when navigating away; never leave orphaned audio.
+  useEffect(() => {
+    voice.stopListening();
+    voice.stopPlayback();
+    voice.markIdle();
+    setSpeakingId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  // Booking form takes over the turn: stop capture so the mic never listens
+  // over form interaction.
+  useEffect(() => {
+    if (showFormInChat) voice.stopListening();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFormInChat]);
 
   // Suggested prompts matching luxury catering themes
   const suggestions = [
@@ -182,6 +266,9 @@ export default function GeminiChatbot() {
 
   const playNotificationSound = () => {
     if (isMuted) return;
+    // Never beep over voice activity: it feeds back into the microphone and
+    // collides with spoken replies. Voice mode has its own audio cues.
+    if (voiceActiveRef.current) return;
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
@@ -257,6 +344,15 @@ export default function GeminiChatbot() {
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
 
+    // A new turn ends any active voice capture/playback from the prior turn.
+    voice.stopListening();
+    voice.stopPlayback();
+    setSpeakingId(null);
+    // Capture voice intent at send time: auto-speak only for turns sent while
+    // voice mode + auto-speak are on. Error bubbles never auto-speak.
+    const shouldAutoSpeak = voiceModeRef.current && autoSpeakRef.current;
+    if (shouldAutoSpeak) voice.markProcessing();
+
     // Remove notification badge on first interaction
     setShowNotification(false);
 
@@ -287,6 +383,12 @@ export default function GeminiChatbot() {
         setMessages((prev) => [...prev, botAcknowledge]);
         saveLocalSessionMessage("model", botAcknowledge.content);
         playNotificationSound();
+        if (shouldAutoSpeak) {
+          setSpeakingId(botAcknowledge.id);
+          voice.speakReply(botAcknowledge.content);
+        } else {
+          voice.markIdle();
+        }
         setShowFormInChat(true);
       }, 700);
       return;
@@ -330,6 +432,14 @@ export default function GeminiChatbot() {
       setMessages((prev) => [...prev, modelMsg]);
       playNotificationSound();
 
+      // Voice mode: speak the same answer shown above (real answers only).
+      if (shouldAutoSpeak) {
+        setSpeakingId(modelMsg.id);
+        voice.speakReply(responseText);
+      } else {
+        voice.markIdle();
+      }
+
       // Save model message to local session database
       saveLocalSessionMessage("model", responseText);
 
@@ -350,6 +460,9 @@ export default function GeminiChatbot() {
       };
       setMessages((prev) => [...prev, errMsg]);
       playNotificationSound();
+      // Never auto-read error bubbles; settle the voice machine instead.
+      voice.markIdle();
+      setSpeakingId(null);
     } finally {
       setIsLoading(false);
     }
@@ -498,8 +611,16 @@ export default function GeminiChatbot() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const stopAllVoice = () => {
+    voice.stopListening();
+    voice.stopPlayback();
+    voice.markIdle();
+    setSpeakingId(null);
+  };
+
   const handleClearChat = () => {
     if (window.confirm("Would you like to clear our conversation and start fresh?")) {
+      stopAllVoice();
       const welcome: Message = {
         id: "welcome-msg",
         role: "model",
@@ -514,6 +635,7 @@ export default function GeminiChatbot() {
   };
 
   const handleRestartConversation = () => {
+    stopAllVoice();
     const newSessionId = `sess-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     sessionStorage.setItem("eveng_chatbot_session_id", newSessionId);
     setSessionId(newSessionId);
@@ -542,6 +664,41 @@ export default function GeminiChatbot() {
       specialRequirements: "",
     });
   };
+
+  // Keep the speaking indicator in sync without re-reading on re-renders.
+  useEffect(() => {
+    if (voice.status === "idle") setSpeakingId(null);
+  }, [voice.status]);
+
+  const toggleVoiceMode = () => {
+    const next = !voiceMode;
+    if (!next) stopAllVoice();
+    setVoiceMode(next);
+    try {
+      localStorage.setItem("eveng_chatbot_voice_mode", String(next));
+    } catch (_) {}
+  };
+
+  const toggleAutoSpeak = () => {
+    const next = !autoSpeak;
+    if (!next) {
+      voice.stopPlayback();
+      setSpeakingId(null);
+    }
+    setAutoSpeak(next);
+    try {
+      localStorage.setItem("eveng_chatbot_autospeak", String(next));
+    } catch (_) {}
+  };
+
+  const voiceStatusText =
+    voice.status === "listening"
+      ? t("chatbot:listening")
+      : voice.status === "processing"
+        ? t("chatbot:processingVoice")
+        : voice.status === "speaking"
+          ? t("chatbot:speaking")
+          : "";
 
   return (
     <div id="gemini-chatbot-container" className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none print:hidden">
@@ -604,7 +761,7 @@ export default function GeminiChatbot() {
                   </button>
                 )}
                 <button
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => { stopAllVoice(); setIsOpen(false); }}
                   className="text-white/70 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-all cursor-pointer max-sm:p-2.5"
                   aria-label="Close Chat Window"
                 >
@@ -614,13 +771,20 @@ export default function GeminiChatbot() {
             </div>
 
             {/* Message Stream Area */}
+            {/* Screen-reader + visual voice status (polite, never blocks). */}
+            <div aria-live="polite" className="sr-only">{voiceStatusText || voiceNotice || ""}</div>
+            {voiceNotice && (
+              <div role="alert" className="mx-4 mt-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-800 shrink-0">
+                {voiceNotice}
+              </div>
+            )}
             <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-slate-50/50">
               {messages.map((msg) => {
                 const isUser = msg.role === "user";
                 const isSystem = msg.role === "system";
                 
                 if (isSystem) {
-                  return (
+  return (
                     <div key={msg.id} className="text-center py-2">
                       <span className="inline-block px-3 py-1 bg-emerald-50 text-[10px] font-bold text-emerald-800 rounded-lg border border-emerald-100">
                         {msg.content}
@@ -664,6 +828,36 @@ export default function GeminiChatbot() {
                           {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         
+                        <span className="flex items-center gap-1">
+                        {/* Speaker/replay for assistant answers ( Modes B/D ). Error bubbles are never spoken. */}
+                        {!isUser && !msg.id.includes("-error") && voice.ttsSupported && (
+                          <button
+                            onClick={() => {
+                              if (speakingId === msg.id) {
+                                voice.stopPlayback();
+                                setSpeakingId(null);
+                              } else {
+                                voice.stopPlayback();
+                                setSpeakingId(msg.id);
+                                voice.speakReply(msg.content);
+                              }
+                            }}
+                            className={`transition-opacity p-0.5 rounded-sm cursor-pointer ${
+                              speakingId === msg.id
+                                ? "opacity-100 text-primary"
+                                : "opacity-0 group-hover/bubble:opacity-100 text-slate-400 hover:text-secondary"
+                            }`}
+                            title={speakingId === msg.id ? t("chatbot:stopSpeaking") : t("chatbot:speakReply")}
+                            aria-label={speakingId === msg.id ? t("chatbot:stopSpeaking") : t("chatbot:speakReply")}
+                            aria-pressed={speakingId === msg.id}
+                          >
+                            {speakingId === msg.id ? (
+                              <Square className="w-3 h-3 fill-current animate-pulse" />
+                            ) : (
+                              <Volume2 className="w-3 h-3" />
+                            )}
+                          </button>
+                        )}
                         {/* Copy button available on hover */}
                         <button
                           onClick={() => handleCopyMessage(msg.id, msg.content)}
@@ -676,6 +870,7 @@ export default function GeminiChatbot() {
                             <Copy className="w-3 h-3" />
                           )}
                         </button>
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -967,6 +1162,70 @@ export default function GeminiChatbot() {
               </div>
             )}
 
+            {/* Voice controls toolbar */}
+            <div className="px-3.5 pt-2.5 bg-white border-t border-slate-100 flex items-center gap-2 flex-wrap shrink-0">
+              <button
+                type="button"
+                onClick={toggleVoiceMode}
+                aria-pressed={voiceMode}
+                title={voiceMode ? t("chatbot:textMode") : t("chatbot:voiceMode")}
+                className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-full border transition-all cursor-pointer ${
+                  voiceMode
+                    ? "bg-secondary text-primary border-primary/40"
+                    : "bg-slate-50 text-slate-500 border-slate-200 hover:border-primary/40"
+                }`}
+              >
+                <Mic className="w-3.5 h-3.5" />
+                {voiceMode ? t("chatbot:voiceMode") : t("chatbot:textMode")}
+              </button>
+              {voiceMode && (
+                <>
+                  <button
+                    type="button"
+                    onClick={toggleAutoSpeak}
+                    aria-pressed={autoSpeak}
+                    title={t("chatbot:autoSpeak")}
+                    className={`flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-full border transition-all cursor-pointer ${
+                      autoSpeak
+                        ? "bg-primary/15 text-secondary border-primary/40"
+                        : "bg-slate-50 text-slate-500 border-slate-200 hover:border-primary/40"
+                    }`}
+                  >
+                    {autoSpeak ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                    {t("chatbot:autoSpeak")}
+                  </button>
+                  <div className="flex items-center rounded-full border border-slate-200 overflow-hidden" role="group" aria-label={t("chatbot:voiceLanguage")}>
+                    {(["auto", "en-IN", "hi-IN"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setVoiceLangOverride(opt)}
+                        aria-pressed={voiceLangOverride === opt}
+                        className={`px-2 py-1.5 text-[10px] font-bold transition-all cursor-pointer ${
+                          voiceLangOverride === opt ? "bg-secondary text-white" : "text-slate-500 hover:bg-slate-50"
+                        }`}
+                      >
+                        {opt === "auto" ? "Auto" : opt === "en-IN" ? "EN" : "HI"}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {voiceStatusText && (
+                <span className="flex items-center gap-1.5 text-[10px] font-bold text-secondary ml-auto">
+                  <span className={`w-1.5 h-1.5 rounded-full ${voice.status === "listening" ? "bg-rose-500 animate-pulse" : "bg-primary animate-pulse"}`} />
+                  {voiceStatusText}
+                </span>
+              )}
+            </div>
+
+            {/* Interim transcript preview while listening */}
+            {voice.status === "listening" && voice.interimTranscript && (
+              <div className="px-4 py-2 bg-rose-50/60 border-t border-rose-100 text-[11px] font-sans font-semibold text-secondary italic truncate shrink-0">
+                “{voice.interimTranscript}”
+              </div>
+            )}
+
             {/* Footer Form Entry Block */}
             <form
               onSubmit={(e) => {
@@ -975,6 +1234,44 @@ export default function GeminiChatbot() {
               }}
               className="p-3.5 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0 max-sm:pb-6"
             >
+              {voice.sttSupported ? (
+                voice.status === "listening" ? (
+                  <button
+                    type="button"
+                    onClick={voice.stopListening}
+                    title={t("chatbot:stopListening")}
+                    aria-label={t("chatbot:stopListening")}
+                    className="w-9 h-9 rounded-full bg-rose-500 text-white flex items-center justify-center transition-all active:scale-90 shadow-md shrink-0 cursor-pointer"
+                  >
+                    <Square className="w-4 h-4 fill-current animate-pulse" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoiceNotice(null);
+                      voice.clearError();
+                      voice.startListening();
+                    }}
+                    disabled={isLoading || showFormInChat}
+                    title={t("chatbot:startListening")}
+                    aria-label={t("chatbot:startListening")}
+                    className="w-9 h-9 rounded-full bg-slate-100 hover:bg-primary/20 text-secondary flex items-center justify-center transition-all disabled:opacity-40 active:scale-90 shrink-0 cursor-pointer"
+                  >
+                    <Mic className="w-4 h-4" />
+                  </button>
+                )
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  title={t("chatbot:speechNotSupported")}
+                  aria-label={t("chatbot:speechNotSupported")}
+                  className="w-9 h-9 rounded-full bg-slate-50 text-slate-300 flex items-center justify-center shrink-0 cursor-not-allowed"
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
+              )}
               <input
                 type="text"
                 value={inputValue}

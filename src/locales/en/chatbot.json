@@ -9,5 +9,21 @@
   "q3": "How many guests can you accommodate for an event?",
   "q4": "What is the booking process and advance payment?",
   "thinking": "Concierge is thinking...",
-  "clearChat": "Clear Conversation"
+  "clearChat": "Clear Conversation",
+  "voiceMode": "Voice mode",
+  "textMode": "Text mode",
+  "startListening": "Start voice input",
+  "stopListening": "Stop listening",
+  "listening": "Listening… speak now",
+  "processingVoice": "Processing voice…",
+  "speaking": "Speaking…",
+  "speakReply": "Listen to reply",
+  "stopSpeaking": "Stop speaking",
+  "autoSpeak": "Auto-speak replies",
+  "voiceLanguage": "Voice language",
+  "speechNotSupported": "Voice input is not supported in this browser. Please type your message.",
+  "speechNoSpeech": "I didn't catch that. Please try speaking again.",
+  "speechMicBlocked": "Microphone access was blocked. Allow microphone permission and try again.",
+  "speechError": "Voice input had trouble. Please try again or type your message.",
+  "speechEmpty": "No speech was recognized. Please try again."
 }
